@@ -1,0 +1,1093 @@
+version 17.09.01
+no service pad
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec show-timezone local
+service timestamps log datetime msec show-timezone local
+service password-encryption
+service password-recovery
+service sequence-numbers
+!
+hostname Cat9k-Core-Switch01
+ip domain-name enterprise.local
+ip unique-hostname
+!
+boot system flash:packages.conf
+!
+vrf definition Mgmt-vrf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+logging userinfo
+!
+aaa new-model
+!
+aaa group server tacacs+ TAC-SERVERS
+ server-private 10.100.10.10 key 7 0822455D0A161C181C
+ server-private 10.100.10.11 key 7 0822455D0A161C181C
+ ip source-interface Loopback0
+!
+aaa group server radius RAD-SERVERS
+ server-private 10.100.10.12 auth-port 1812 acct-port 1813 key 7 121A0C16110E081D
+ server-private 10.100.10.13 auth-port 1812 acct-port 1813 key 7 121A0C16110E081D
+ ip source-interface Loopback0
+!
+aaa authentication login default group TAC-SERVERS local
+aaa authentication login CONSOLE local
+aaa authorization exec default group TAC-SERVERS local 
+aaa authorization commands 1 default group TAC-SERVERS local
+aaa authorization commands 15 default group TAC-SERVERS local
+aaa accounting exec default start-stop group TAC-SERVERS
+aaa accounting commands 1 default start-stop group TAC-SERVERS
+aaa accounting commands 15 default start-stop group TAC-SERVERS
+aaa accounting connection default start-stop group TAC-SERVERS
+!
+username admin privilege 15 secret 9 $9$X7eD$K1pM$O8vR$1a2b3c4d5e6f
+!
+clock timezone EST -5 0
+clock summer-time EDT recurring 2 March Sun 2:00 1 November Sun 2:00
+!
+
+ip access-list extended COPP-ACL-SSH
+ permit tcp any any eq 22
+!
+ip access-list extended COPP-ACL-SNMP
+ permit udp any any eq 161
+!
+ip access-list extended COPP-ACL-ROUTING
+ permit ospf any any
+ permit eigrp any any
+ permit tcp any any eq bgp
+ permit tcp any eq bgp any
+!
+class-map match-all COPP-CLASS-SSH
+ match access-group name COPP-ACL-SSH
+!
+class-map match-all COPP-CLASS-SNMP
+ match access-group name COPP-ACL-SNMP
+!
+class-map match-all COPP-CLASS-ROUTING
+ match access-group name COPP-ACL-ROUTING
+!
+policy-map COPP-POLICY
+ class COPP-CLASS-ROUTING
+  police 1000000 conform-action transmit exceed-action transmit
+ class COPP-CLASS-SSH
+  police 256000 conform-action transmit exceed-action drop
+ class COPP-CLASS-SNMP
+  police 128000 conform-action transmit exceed-action drop
+ class class-default
+  police 64000 conform-action transmit exceed-action drop
+!
+control-plane
+ service-policy input COPP-POLICY
+!
+
+ip dhcp snooping vlan 10,20,30,40,50,60,70,80
+ip dhcp snooping database flash:dhcp_snoop.db
+ip dhcp snooping
+!
+ip arp inspection vlan 10,20,30,40,50,60,70,80
+!
+device-tracking policy IPDT_POLICY
+ security-level glean
+ device-role node
+ limit-address-count 10
+!
+
+class-map match-any VOICE-CLASS
+ match dscp ef
+ match cos 5
+!
+class-map match-any VIDEO-CLASS
+ match dscp af41
+ match dscp af42
+ match cos 4
+!
+class-map match-any CRITICAL-DATA
+ match dscp af31
+ match dscp af21
+ match cos 3
+!
+policy-map INGRESS-QOS
+ class VOICE-CLASS
+  set dscp ef
+  police 128000 conform-action transmit exceed-action drop
+ class VIDEO-CLASS
+  set dscp af41
+  police 5000000 conform-action transmit exceed-action markdown
+ class CRITICAL-DATA
+  set dscp af31
+ class class-default
+  set dscp default
+!
+policy-map EGRESS-QUEUEING
+ class VOICE-CLASS
+  priority level 1
+ class VIDEO-CLASS
+  bandwidth remaining percent 20
+ class CRITICAL-DATA
+  bandwidth remaining percent 40
+ class class-default
+  bandwidth remaining percent 40
+!
+
+vlan 10
+ name CORP_DATA
+!
+vlan 11
+ name CORP_VOICE
+!
+vlan 20
+ name GUEST_WIFI
+!
+vlan 30
+ name IOT_DEVICES
+!
+vlan 40
+ name PRINTERS
+!
+vlan 50
+ name IP_CAMERAS
+!
+vlan 60
+ name SERVERS
+!
+vlan 70
+ name DMZ
+!
+vlan 80
+ name IN-BAND_MGMT
+!
+spanning-tree mode mst
+spanning-tree mst extend system-id
+!
+spanning-tree mst configuration
+ name ENTERPRISE_MST
+ revision 1
+ instance 1 vlan 10, 11, 20, 30, 40
+ instance 2 vlan 50, 60, 70, 80
+!
+spanning-tree mst 1 priority 4096
+spanning-tree mst 2 priority 8192
+!
+
+vrf definition VRF_CORPORATE
+ rd 65000:10
+ route-target export 65000:10
+ route-target import 65000:10
+ !
+ address-family ipv4
+  exit-address-family
+!
+vrf definition VRF_GUEST
+ rd 65000:20
+ route-target export 65000:20
+ route-target import 65000:20
+ !
+ address-family ipv4
+  exit-address-family
+!
+vrf definition VRF_IOT
+ rd 65000:30
+ route-target export 65000:30
+ route-target import 65000:30
+ !
+ address-family ipv4
+  exit-address-family
+!
+
+interface Loopback0
+ description Router-ID & Management Loopback
+ ip address 10.255.255.1 255.255.255.255
+!
+interface Vlan10
+ description Corporate Data SVI
+ vrf forwarding VRF_CORPORATE
+ ip address 10.10.10.2 255.255.255.0
+ ip helper-address 10.100.10.15
+ no ip redirects
+ no ip proxy-arp
+ standby 10 ip 10.10.10.1
+ standby 10 priority 110
+ standby 10 preempt
+ standby 10 authentication md5 key-string 7 045802150C2E
+ no shutdown
+!
+interface Vlan11
+ description Corporate Voice SVI
+ vrf forwarding VRF_CORPORATE
+ ip address 10.10.11.2 255.255.255.0
+ ip helper-address 10.100.10.15
+ no ip redirects
+ no ip proxy-arp
+ standby 11 ip 10.10.11.1
+ standby 11 priority 110
+ standby 11 preempt
+ standby 11 authentication md5 key-string 7 045802150C2E
+ no shutdown
+!
+interface Vlan20
+ description Guest WiFi SVI
+ vrf forwarding VRF_GUEST
+ ip address 10.10.20.2 255.255.255.0
+ ip helper-address 10.100.10.15
+ no ip redirects
+ no ip proxy-arp
+ standby 20 ip 10.10.20.1
+ standby 20 priority 110
+ standby 20 preempt
+ standby 20 authentication md5 key-string 7 045802150C2E
+ no shutdown
+!
+interface Vlan30
+ description IoT Devices SVI
+ vrf forwarding VRF_IOT
+ ip address 10.10.30.2 255.255.255.0
+ ip helper-address 10.100.10.15
+ no ip redirects
+ no ip proxy-arp
+ standby 30 ip 10.10.30.1
+ standby 30 priority 110
+ standby 30 preempt
+ standby 30 authentication md5 key-string 7 045802150C2E
+ no shutdown
+!
+interface Vlan40
+ description Printers SVI
+ vrf forwarding VRF_CORPORATE
+ ip address 10.10.40.2 255.255.255.0
+ no ip redirects
+ no ip proxy-arp
+ standby 40 ip 10.10.40.1
+ standby 40 priority 110
+ standby 40 preempt
+ standby 40 authentication md5 key-string 7 045802150C2E
+ no shutdown
+!
+interface Vlan50
+ description IP Cameras SVI
+ vrf forwarding VRF_IOT
+ ip address 10.10.50.2 255.255.255.0
+ no ip redirects
+ no ip proxy-arp
+ standby 50 ip 10.10.50.1
+ standby 50 priority 110
+ standby 50 preempt
+ standby 50 authentication md5 key-string 7 045802150C2E
+ no shutdown
+!
+interface Vlan60
+ description Internal Servers SVI
+ vrf forwarding VRF_CORPORATE
+ ip address 10.10.60.2 255.255.255.0
+ no ip redirects
+ no ip proxy-arp
+ standby 60 ip 10.10.60.1
+ standby 60 priority 110
+ standby 60 preempt
+ standby 60 authentication md5 key-string 7 045802150C2E
+ no shutdown
+!
+interface Vlan70
+ description DMZ SVI
+ ip address 10.10.70.2 255.255.255.0
+ no ip redirects
+ no ip proxy-arp
+ standby 70 ip 10.10.70.1
+ standby 70 priority 110
+ standby 70 preempt
+ standby 70 authentication md5 key-string 7 045802150C2E
+ no shutdown
+!
+interface Vlan80
+ description In-Band Management SVI
+ ip address 10.10.80.2 255.255.255.0
+ no ip redirects
+ no ip proxy-arp
+ standby 80 ip 10.10.80.1
+ standby 80 priority 110
+ standby 80 preempt
+ standby 80 authentication md5 key-string 7 045802150C2E
+ no shutdown
+!
+router ospf 100 vrf VRF_CORPORATE
+ router-id 10.255.255.1
+ log-adjacency-changes
+ passive-interface default
+ no passive-interface Vlan10
+ no passive-interface Vlan11
+ network 10.10.10.0 0.0.0.255 area 0
+ network 10.10.11.0 0.0.0.255 area 0
+ network 10.10.40.0 0.0.0.255 area 0
+ network 10.10.60.0 0.0.0.255 area 0
+!
+router ospf 200 vrf VRF_GUEST
+ router-id 10.255.255.2
+ log-adjacency-changes
+ passive-interface default
+ no passive-interface Vlan20
+ network 10.10.20.0 0.0.0.255 area 1
+!
+router bgp 65000
+ bgp router-id 10.255.255.1
+ bgp log-neighbor-changes
+ neighbor 192.168.255.1 remote-as 65100
+ neighbor 192.168.255.1 description Uplink_to_Core_WAN_01
+ neighbor 192.168.255.5 remote-as 65100
+ neighbor 192.168.255.5 description Uplink_to_Core_WAN_02
+ !
+ address-family ipv4
+  neighbor 192.168.255.1 activate
+  neighbor 192.168.255.5 activate
+  network 10.255.255.1 mask 255.255.255.255
+  exit-address-family
+ !
+ address-family ipv4 vrf VRF_CORPORATE
+  redistribute ospf 100
+  neighbor 192.168.254.1 remote-as 65200
+  neighbor 192.168.254.1 activate
+  exit-address-family
+ !
+ address-family ipv4 vrf VRF_GUEST
+  redistribute ospf 200
+  exit-address-family
+!
+interface GigabitEthernet1/0/1
+ description Corporate_Workstation_01
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/2
+ description Corporate_Workstation_02
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/3
+ description Corporate_Workstation_03
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/4
+ description Corporate_Workstation_04
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/5
+ description Corporate_Workstation_05
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/6
+ description Corporate_Workstation_06
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/7
+ description Corporate_Workstation_07
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/8
+ description Corporate_Workstation_08
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/9
+ description Corporate_Workstation_09
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/10
+ description Corporate_Workstation_10
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/11
+ description Corporate_Workstation_11
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+interface GigabitEthernet1/0/12
+ description Corporate_Workstation_12
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 15
+ no macro auto processing
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+!
+! Ports 13-24: Guest Wireless Access Points (VLAN 20)
+! ------------------------------------------------------------------------------
+interface GigabitEthernet1/0/13
+ description Guest_AP_01
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/14
+ description Guest_AP_02
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/15
+ description Guest_AP_03
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/16
+ description Guest_AP_04
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/17
+ description Guest_AP_05
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/18
+ description Guest_AP_06
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/19
+ description Guest_AP_07
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/20
+ description Guest_AP_08
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/21
+ description Guest_AP_09
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/22
+ description Guest_AP_10
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/23
+ description Guest_AP_11
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/24
+ description Guest_AP_12
+ switchport access vlan 20
+ switchport mode access
+ device-tracking attach-policy IPDT_POLICY
+ ip dhcp snooping limit rate 50
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+! Ports 25-36: IoT Devices & Printers (VLAN 30 & 40)
+! ------------------------------------------------------------------------------
+interface GigabitEthernet1/0/25
+ description IoT_Badge_Reader_01
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/26
+ description IoT_Badge_Reader_02
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/27
+ description IoT_Badge_Reader_03
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/28
+ description IoT_Badge_Reader_04
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/29
+ description IoT_HVAC_Controller_01
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/30
+ description IoT_HVAC_Controller_02
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/31
+ description Network_Printer_01
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/32
+ description Network_Printer_02
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/33
+ description Network_Printer_03
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/34
+ description Network_Printer_04
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/35
+ description Network_Printer_05
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/36
+ description Network_Printer_06
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+! Ports 37-48: IP Cameras (VLAN 50)
+! ------------------------------------------------------------------------------
+interface GigabitEthernet1/0/37
+ description IP_Camera_01
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/38
+ description IP_Camera_02
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/39
+ description IP_Camera_03
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/40
+ description IP_Camera_04
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/41
+ description IP_Camera_05
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/42
+ description IP_Camera_06
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/43
+ description IP_Camera_07
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/44
+ description IP_Camera_08
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/45
+ description IP_Camera_09
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/46
+ description IP_Camera_10
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/47
+ description IP_Camera_11
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface GigabitEthernet1/0/48
+ description IP_Camera_12
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+!
+interface Port-channel10
+ description LACP_Trunk_to_Core_WAN_01
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ ip dhcp snooping trust
+ no shutdown
+!
+interface Port-channel20
+ description LACP_Trunk_to_Core_WAN_02
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ ip dhcp snooping trust
+ no shutdown
+!
+interface TenGigabitEthernet1/1/1
+ description Uplink_Port_1_to_Core_WAN_01
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 10 mode active
+ ip dhcp snooping trust
+ no shutdown
+!
+interface TenGigabitEthernet1/1/2
+ description Uplink_Port_2_to_Core_WAN_01
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 10 mode active
+ ip dhcp snooping trust
+ no shutdown
+!
+interface TenGigabitEthernet1/1/3
+ description Uplink_Port_1_to_Core_WAN_02
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 20 mode active
+ ip dhcp snooping trust
+ no shutdown
+!
+interface TenGigabitEthernet1/1/4
+ description Uplink_Port_2_to_Core_WAN_02
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 20 mode active
+ ip dhcp snooping trust
+ no shutdown
+!
+interface TenGigabitEthernet1/1/5
+ description Routed_Uplink_to_Firewall_01
+ no switchport
+ ip address 192.168.255.2 255.255.255.252
+ no shutdown
+!
+interface TenGigabitEthernet1/1/6
+ description Routed_Uplink_to_Firewall_02
+ no switchport
+ ip address 192.168.255.6 255.255.255.252
+ no shutdown
+!
+interface TenGigabitEthernet1/1/7
+ description Unused_SFP_Port
+ shutdown
+!
+interface TenGigabitEthernet1/1/8
+ description Unused_SFP_Port
+ shutdown
+!
+interface GigabitEthernet0/0
+ description Out-of-Band Management Port
+ vrf forwarding Mgmt-vrf
+ ip address 192.168.100.10 255.255.255.0
+ no shutdown
+!
+ip route vrf Mgmt-vrf 0.0.0.0 0.0.0.0 192.168.100.1
+!
+ip access-list extended VTY-ACL
+ permit tcp 10.10.80.0 0.0.0.255 any eq 22
+ permit tcp 192.168.100.0 0.0.0.255 any eq 22
+ deny ip any any log
+!
+snmp-server community 7 0822455D0A161C181C RO 10
+snmp-server community 7 121A0C16110E081D RW 20
+snmp-server location Data_Center_Rack_03
+snmp-server contact IT_Operations
+snmp-server enable traps snmp authentication linkdown linkup coldstart warmstart
+snmp-server enable traps mac-notification change move threshold
+snmp-server enable traps vtp
+snmp-server enable traps hsrp
+snmp-server host 10.100.10.20 version 2c public 
+!
+ntp server vrf Mgmt-vrf 10.100.10.5 prefer
+ntp server vrf Mgmt-vrf 10.100.10.6
+!
+logging host 10.100.10.30 vrf Mgmt-vrf
+logging trap informational
+logging facility local7
+!
+line con 0
+ exec-timeout 5 0
+ privilege level 15
+ login authentication CONSOLE
+ stopbits 1
+line vty 0 4
+ access-class VTY-ACL in
+ exec-timeout 10 0
+ privilege level 15
+ login authentication default
+ transport input ssh
+line vty 5 15
+ access-class VTY-ACL in
+ exec-timeout 10 0
+ privilege level 15
+ login authentication default
+ transport input ssh
+!
+end
+write memory

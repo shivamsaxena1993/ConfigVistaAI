@@ -1,0 +1,155 @@
+Access-SW03#show running-config
+Building configuration...
+
+Current configuration : 9928 bytes
+!
+! Last configuration change at 11:36:41 IST Thu Jul 9 2026 by admin
+!
+version 17.9
+service timestamps debug datetime msec
+service timestamps log datetime msec
+service password-encryption
+service sequence-numbers
+!
+hostname Access-SW03
+!
+boot-start-marker
+boot-end-marker
+!
+no ip domain-lookup
+ip domain name configvista.local
+vtp mode transparent
+spanning-tree mode rapid-pvst
+spanning-tree portfast default
+spanning-tree portfast bpduguard default
+!
+aaa new-model
+aaa authentication login default local
+aaa authorization exec default local
+!
+username admin privilege 15 secret 9 $9$EncryptedAdminPassword
+enable secret 9 $9$EncryptedEnablePassword
+!
+vlan 10
+ name MANAGEMENT
+vlan 20
+ name SERVERS
+vlan 30
+ name USERS
+vlan 40
+ name VOICE
+vlan 50
+ name GUEST
+vlan 99
+ name NATIVE
+!
+interface Vlan10
+ description Switch Management
+ ip address 10.10.10.103 255.255.255.0
+ no shutdown
+!
+ip default-gateway 10.10.10.1
+!
+interface Port-channel1
+ description Uplink to Dist-SW2
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,30,40,50,99
+!
+interface GigabitEthernet1/0/49
+ description Uplink-1 to Dist-SW2
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,30,40,50,99
+ channel-group 1 mode active
+ ip dhcp snooping trust
+!
+interface GigabitEthernet1/0/50
+ description Uplink-2 to Dist-SW2
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,30,40,50,99
+ channel-group 1 mode active
+ ip dhcp snooping trust
+!
+interface range GigabitEthernet1/0/1-18
+ description Corporate Users - Building B
+ switchport mode access
+ switchport access vlan 30
+ switchport voice vlan 40
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ switchport port-security
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security mac-address sticky
+ authentication port-control auto
+ mab
+ storm-control broadcast level 5.00
+ power inline auto
+!
+interface range GigabitEthernet1/0/19-26
+ description IP Phones
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+ power inline auto
+!
+interface range GigabitEthernet1/0/27-34
+ description CCTV and IoT
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+ power inline auto
+!
+interface range GigabitEthernet1/0/35-42
+ description Wireless Access Points
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,30,40,99
+ spanning-tree portfast trunk
+ power inline auto
+!
+interface range GigabitEthernet1/0/43-46
+ description Guest Network
+ switchport mode access
+ switchport access vlan 50
+ spanning-tree portfast
+!
+interface range GigabitEthernet1/0/47-48
+ description Future Expansion
+ shutdown
+!
+ip dhcp snooping
+ip dhcp snooping vlan 10,20,30,40,50
+ip arp inspection vlan 10,20,30,40,50
+!
+snmp-server community CONFIGVISTA-RO RO
+logging host 10.255.100.10
+logging host 10.255.100.11
+ntp server 10.255.100.20 prefer
+ntp server 10.255.100.21
+ip ssh version 2
+!
+banner motd ^C
+******************************************************
+* Access-SW03                                        *
+* ConfigVista AI Enterprise Access Layer             *
+******************************************************
+^C
+!
+line con 0
+ login local
+ logging synchronous
+!
+line vty 0 15
+ login local
+ transport input ssh
+!
+archive
+ log config
+  logging enable
+ path flash:archive
+ write-memory
+!
+end

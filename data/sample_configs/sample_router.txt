@@ -1,0 +1,23 @@
+hostname Core-R1
+
+interface GigabitEthernet0/0
+ ip address 10.1.1.1 255.255.255.0
+
+interface GigabitEthernet0/1
+
+router ospf 1
+
+router bgp 65001
+
+ip route 0.0.0.0 0.0.0.0 10.1.1.254
+
+vlan 10
+vlan 20
+
+route-map RM-BGP permit 10
+
+ip prefix-list DEFAULT seq 5 permit 0.0.0.0/0
+
+access-list 10 permit any
+
+ip vrf CUSTOMER-A

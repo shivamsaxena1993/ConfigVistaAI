@@ -1,0 +1,281 @@
+!
+!====================================================================
+! ConfigVista AI Sample Enterprise Configuration
+!====================================================================
+! Device Role : Core Router
+! Vendor      : Cisco
+! Model       : ISR4451-X
+! Site        : Bangalore Data Center
+! Environment : Production
+! Owner       : Enterprise Network Team
+!====================================================================
+!
+
+Current configuration : 4821 bytes
+!
+! Last configuration change at 10:46:35 IST Thu Jul 9 2026 by admin
+!
+version 17.9
+service timestamps debug datetime msec
+service timestamps log datetime msec
+service password-encryption
+service sequence-numbers
+!
+hostname Core-R1
+!
+boot-start-marker
+boot-end-marker
+!
+no ip domain-lookup
+ip domain name configvista.local
+!
+vrf definition CUSTOMER-A
+ rd 65000:100
+ !
+ address-family ipv4
+ exit-address-family
+!
+aaa new-model
+!
+aaa authentication login default local
+aaa authorization exec default local
+!
+login block-for 120 attempts 3 within 60
+!
+ip cef
+ipv6 cef
+!
+clock timezone IST 5 30
+!
+username admin privilege 15 secret 9 $9$EncryptedEnablePassword
+username operator privilege 5 secret 9 $9$EncryptedOperatorPassword
+enable secret 9 $9$EncryptedEnablePassword
+!
+!
+flow record CONFIGVISTA-RECORD
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ collect counter bytes
+ collect counter packets
+!
+flow exporter CONFIGVISTA-EXPORTER
+ destination 10.255.100.50
+ transport udp 2055
+ export-protocol netflow-v9
+!
+flow monitor CONFIGVISTA-MONITOR
+ exporter CONFIGVISTA-EXPORTER
+ record CONFIGVISTA-RECORD
+!
+class-map match-any CRITICAL-TRAFFIC
+ match protocol ospf
+ match protocol bgp
+!
+policy-map CORE-QOS
+ class CRITICAL-TRAFFIC
+  priority percent 20
+ class class-default
+  fair-queue
+!
+!
+interface Loopback0
+ description Router-ID
+ ip address 10.255.255.1 255.255.255.255
+!
+interface Loopback100
+ description Management Loopback
+ ip address 10.255.100.1 255.255.255.255
+!
+interface GigabitEthernet0/0/0
+ description Uplink to Core-R2 Gi0/0/0
+ ip address 10.1.12.1 255.255.255.252
+ ip ospf network point-to-point
+ ip flow monitor CONFIGVISTA-MONITOR input
+ ip flow monitor CONFIGVISTA-MONITOR output
+ service-policy output CORE-QOS
+!
+interface GigabitEthernet0/0/1
+ description Uplink to Edge-FW01 Outside
+ ip address 172.16.0.1 255.255.255.252
+ ip flow monitor CONFIGVISTA-MONITOR input
+ ip flow monitor CONFIGVISTA-MONITOR output
+ service-policy output CORE-QOS
+!
+interface GigabitEthernet0/0/2
+ description Uplink to Dist-SW1
+ ip address 10.10.1.1 255.255.255.252
+ ip ospf network point-to-point
+!
+interface GigabitEthernet0/0/3
+ description Uplink to Dist-SW2
+ ip address 10.10.2.1 255.255.255.252
+ ip ospf network point-to-point
+!
+interface GigabitEthernet0/1/0
+ description Customer WAN Connection
+ vrf forwarding CUSTOMER-A
+ ip address 192.168.100.1 255.255.255.252
+!
+interface GigabitEthernet0/2/0
+ description Reserved
+ shutdown
+!
+interface GigabitEthernet0
+ description Management Network
+ ip address 10.255.10.1 255.255.255.0
+!
+interface Null0
+ description Route Summarization
+ no ip redirects
+!
+router ospf 10
+ router-id 10.255.255.1
+ auto-cost reference-bandwidth 100000
+ passive-interface default
+ no passive-interface GigabitEthernet0/0/0
+ no passive-interface GigabitEthernet0/0/2
+ no passive-interface GigabitEthernet0/0/3
+ network 10.1.12.0 0.0.0.3 area 0
+ network 10.10.1.0 0.0.0.3 area 0
+ network 10.10.2.0 0.0.0.3 area 0
+ network 10.255.100.1 0.0.0.0 area 0
+ network 10.255.255.1 0.0.0.0 area 0
+ default-information originate
+ redistribute static subnets route-map RM-REDISTRIBUTE
+!
+router bgp 65000
+ bgp router-id 10.255.255.1
+ bgp log-neighbor-changes
+ neighbor 172.16.0.2 remote-as 65100
+ neighbor 172.16.0.2 description Edge-FW01
+ neighbor 172.16.0.2 update-source GigabitEthernet0/0/1
+ !
+ address-family ipv4
+  network 10.1.12.0 mask 255.255.255.252
+  network 10.10.1.0 mask 255.255.255.252
+  network 10.10.2.0 mask 255.255.255.252
+  network 10.255.100.1 mask 255.255.255.255
+  network 10.255.255.1 mask 255.255.255.255
+  neighbor 172.16.0.2 activate
+  neighbor 172.16.0.2 route-map RM-BGP-IN in
+  neighbor 172.16.0.2 route-map RM-BGP-OUT out
+ exit-address-family
+!
+ip forward-protocol nd
+no ip http server
+no ip http secure-server
+!
+ip route 0.0.0.0 0.0.0.0 172.16.0.2
+ip route 192.168.200.0 255.255.255.0 10.1.12.2
+ip route vrf CUSTOMER-A 0.0.0.0 0.0.0.0 192.168.100.2
+!
+ip tcp synwait-time 10
+ip ssh version 2
+ip ssh time-out 60
+ip ssh authentication-retries 3
+!
+ip prefix-list PL-DEFAULT seq 5 permit 0.0.0.0/0
+ip prefix-list PL-INTERNAL seq 10 permit 10.0.0.0/8 le 32
+ip prefix-list PL-DATACENTER seq 20 permit 172.16.0.0/16 le 32
+!
+route-map RM-BGP-IN permit 10
+ match ip address prefix-list PL-INTERNAL
+ set local-preference 200
+!
+route-map RM-BGP-OUT permit 10
+ match ip address prefix-list PL-DATACENTER
+ set metric 50
+!
+route-map RM-REDISTRIBUTE permit 10
+ match ip address prefix-list PL-INTERNAL
+!
+ip access-list standard MGMT-ACL
+ permit 10.255.100.0 0.0.0.255
+ deny any log
+!
+ip access-list extended ACL-INFRA
+ permit ospf any any
+ permit tcp 10.0.0.0 0.255.255.255 any eq 22
+ permit icmp any any
+ deny ip any any log
+!
+snmp-server community CONFIGVISTA-RO RO
+snmp-server community CONFIGVISTA-RW RW
+snmp-server location Bangalore-DC
+snmp-server contact noc@configvista.local
+snmp-server enable traps
+!
+logging buffered 16384 informational
+logging trap informational
+logging origin-id hostname
+logging source-interface Loopback100
+logging host 10.255.100.10
+logging host 10.255.100.11
+!
+ntp source Loopback100
+ntp server 10.255.100.20 prefer
+ntp server 10.255.100.21
+!
+ip sla 10
+ icmp-echo 172.16.0.2
+ frequency 10
+ip sla schedule 10 life forever start-time now
+!
+track 10 ip sla 10 reachability
+!
+cdp run
+lldp run
+!
+control-plane
+ service-policy input CORE-QOS
+!
+archive
+ log config
+  logging enable
+ path flash:archive
+ write-memory
+!
+event manager applet CONFIG-SAVE
+ event syslog pattern "CONFIG_I"
+ action 1.0 cli command "enable"
+ action 2.0 cli command "write memory"
+!
+banner motd ^C
+******************************************************************
+* *
+* Authorized Access Only                          *
+* ConfigVista AI Enterprise Lab                         *
+* *
+* All activities are monitored and logged.                      *
+* *
+******************************************************************
+^C
+!
+line con 0
+ exec-timeout 10 0
+ logging synchronous
+ login local
+line aux 0
+line vty 0 4
+ access-class MGMT-ACL in
+ exec-timeout 15 0
+ login local
+ transport input ssh
+line vty 5 15
+ access-class MGMT-ACL in
+ exec-timeout 15 0
+ login local
+ transport input ssh
+!
+scheduler allocate 20000 1000
+!
+call-home
+ contact-email-addr noc@configvista.local
+ profile CiscoTAC-1
+  active
+  destination transport-method http
+!
+end

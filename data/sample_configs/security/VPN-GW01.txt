@@ -1,0 +1,130 @@
+VPN-GW01#show running-config
+Building configuration...
+
+Current configuration : 11896 bytes
+!
+! Last configuration change at 10:48:03 IST Thu Jul 9 2026 by admin
+!
+version 17.9
+service timestamps debug datetime msec
+service timestamps log datetime msec
+service password-encryption
+service sequence-numbers
+!
+hostname VPN-GW01
+!
+boot-start-marker
+boot-end-marker
+!
+ip cef
+no ip domain-lookup
+ip domain name configvista.local
+!
+aaa new-model
+aaa authentication login default local
+aaa authorization exec default local
+!
+username admin privilege 15 secret 9 $9$EncryptedAdminPassword
+enable secret 9 $9$EncryptedEnablePassword
+!
+interface Loopback0
+ description VPN Router-ID
+ ip address 10.255.255.200 255.255.255.255
+!
+interface GigabitEthernet0/0/0
+ description Transit to Edge-FW01
+ ip address 172.30.0.2 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/0/1
+ description VPN Client Network
+ ip address 10.100.0.1 255.255.255.0
+ no shutdown
+!
+interface Tunnel100
+ description Site-to-Site VPN Tunnel
+ ip address 10.254.100.1 255.255.255.252
+ tunnel source GigabitEthernet0/0/0
+ tunnel destination 198.51.200.2
+ tunnel mode ipsec ipv4
+ no shutdown
+!
+crypto isakmp policy 10
+ encryption aes
+ hash sha256
+ authentication pre-share
+ group 14
+ lifetime 86400
+!
+crypto isakmp key ConfigVista123 address 172.30.0.1
+!
+crypto ipsec transform-set TS-SITE esp-aes esp-sha-hmac
+ mode tunnel
+!
+ip access-list extended VPN-TRAFFIC
+ permit ip 10.100.0.0 0.0.0.255 10.0.0.0 0.255.255.255
+!
+crypto map VPN-MAP 10 ipsec-isakmp
+ set peer 172.30.0.1
+ set transform-set TS-SITE
+ match address VPN-TRAFFIC
+!
+interface GigabitEthernet0/0/0
+ crypto map VPN-MAP
+!
+router ospf 10
+ router-id 10.255.255.200
+ passive-interface default
+ no passive-interface Tunnel100
+ network 10.254.100.0 0.0.0.3 area 100
+ network 10.100.0.0 0.0.0.255 area 100
+ network 10.255.255.200 0.0.0.0 area 100
+!
+ip route 0.0.0.0 0.0.0.0 172.30.0.1
+!
+ip sla 200
+ icmp-echo 172.30.0.1
+ frequency 10
+ip sla schedule 200 life forever start-time now
+track 200 ip sla 200 reachability
+!
+logging buffered 16384 informational
+logging host 10.255.100.10
+logging host 10.255.100.11
+!
+ntp server 10.255.100.20 prefer
+ntp server 10.255.100.21
+!
+snmp-server community CONFIGVISTA-RO RO
+snmp-server location Bangalore-DC
+snmp-server contact noc@configvista.local
+!
+ip ssh version 2
+!
+archive
+ log config
+  logging enable
+ path flash:archive
+ write-memory
+!
+event manager applet AUTO-SAVE
+ event syslog pattern "CONFIG_I"
+ action 1.0 cli command "enable"
+ action 2.0 cli command "write memory"
+!
+banner motd ^C
+******************************************************
+* VPN-GW01 - Enterprise VPN Gateway                  *
+* ConfigVista AI Enterprise Lab                      *
+******************************************************
+^C
+!
+line con 0
+ login local
+ logging synchronous
+!
+line vty 0 15
+ login local
+ transport input ssh
+!
+end

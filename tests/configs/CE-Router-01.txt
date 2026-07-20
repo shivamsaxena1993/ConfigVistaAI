@@ -1,0 +1,1304 @@
+version 17.03.04a
+no service pad
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec show-timezone local
+service timestamps log datetime msec show-timezone local
+service password-encryption
+service password-recovery
+service sequence-numbers
+!
+hostname CE-Router-01
+ip domain-name enterprise.com
+ip unique-hostname
+ip routing
+ip cef
+!
+vrf definition Mgmt-vrf
+ address-family ipv4
+ exit-address-family
+!
+vrf definition VRF_CORP
+ rd 65000:10
+ route-target export 65000:10
+ route-target import 65000:10
+ address-family ipv4
+  exit-address-family
+!
+vrf definition VRF_GUEST
+ rd 65000:20
+ route-target export 65000:20
+ route-target import 65000:20
+ address-family ipv4
+  exit-address-family
+!
+vrf definition VRF_IOT
+ rd 65000:30
+ route-target export 65000:30
+ route-target import 65000:30
+ address-family ipv4
+  exit-address-family
+!
+vrf definition VRF_VOICE
+ rd 65000:40
+ route-target export 65000:40
+ route-target import 65000:40
+ address-family ipv4
+  exit-address-family
+!
+aaa new-model
+!
+aaa group server tacacs+ TAC-SERVERS
+ server-private 10.100.10.10 key 7 0822455D0A161C181C
+ server-private 10.100.10.11 key 7 0822455D0A161C181C
+!
+aaa group server radius RAD-SERVERS
+ server-private 10.100.10.12 auth-port 1812 acct-port 1813 key 7 121A0C16110E081D
+ server-private 10.100.10.13 auth-port 1812 acct-port 1813 key 7 121A0C16110E081D
+!
+aaa authentication login default group TAC-SERVERS local
+aaa authentication login CONSOLE local
+aaa authorization exec default group TAC-SERVERS local
+aaa authorization commands 1 default group TAC-SERVERS local
+aaa authorization commands 15 default group TAC-SERVERS local
+aaa accounting exec default start-stop group TAC-SERVERS
+aaa accounting commands 1 default start-stop group TAC-SERVERS
+aaa accounting commands 15 default start-stop group TAC-SERVERS
+!
+username admin privilege 15 secret 9 $9$X7eD$K1pM$O8vR$1a2b3c4d5e6f
+!
+crypto ikev2 proposal IKEV2_PROP
+ encryption aes-cbc-256 aes-cbc-128
+ integrity sha512 sha384 sha256
+ group 20 19 14
+!
+crypto ikev2 policy IKEV2_POL
+ proposal IKEV2_PROP
+!
+crypto ikev2 keyring IKEV2_KEYRING
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key local 7 0822455D0A161C181C
+  pre-shared-key remote 7 0822455D0A161C181C
+!
+crypto ikev2 profile IKEV2_PROFILE
+ match identity remote address 0.0.0.0
+ identity local address 192.0.2.2
+ authentication local pre-share
+ authentication remote pre-share
+ keyring local IKEV2_KEYRING
+ dpd 10 5 on-demand
+!
+crypto ipsec transform-set IPSEC_TSET esp-aes 256 esp-sha512-hmac
+ mode transport
+!
+crypto ipsec profile IPSEC_PROFILE
+ set transform-set IPSEC_TSET
+ set ikev2-profile IKEV2_PROFILE
+!
+class-map match-any VOICE
+ match dscp ef
+!
+class-map match-any INTERACTIVE_VIDEO
+ match dscp af41 af42
+!
+class-map match-any STREAMING_VIDEO
+ match dscp af31 af32
+!
+class-map match-any CALL_SIGNALING
+ match dscp cs3
+!
+class-map match-any CRITICAL_DATA
+ match dscp af21 af22
+!
+class-map match-any BULK_DATA
+ match dscp af11 af12
+!
+class-map match-any NETWORK_MGMT
+ match dscp cs2
+!
+class-map match-any TRANSACTIONAL
+ match dscp af23
+!
+class-map match-any SCAVENGER
+ match dscp cs1
+!
+policy-map WAN_EDGE_QUEUE
+ class VOICE
+  priority level 1
+  police cir percent 10
+ class INTERACTIVE_VIDEO
+  priority level 2
+  police cir percent 20
+ class STREAMING_VIDEO
+  bandwidth remaining percent 10
+ class CALL_SIGNALING
+  bandwidth remaining percent 5
+ class CRITICAL_DATA
+  bandwidth remaining percent 25
+  random-detect dscp-based
+ class BULK_DATA
+  bandwidth remaining percent 10
+  random-detect dscp-based
+ class NETWORK_MGMT
+  bandwidth remaining percent 5
+ class TRANSACTIONAL
+  bandwidth remaining percent 10
+ class SCAVENGER
+  bandwidth remaining percent 1
+ class class-default
+  bandwidth remaining percent 14
+  random-detect
+!
+policy-map WAN_EDGE_SHAPE_100M
+ class class-default
+  shape average 100000000
+  service-policy WAN_EDGE_QUEUE
+!
+policy-map WAN_EDGE_SHAPE_50M
+ class class-default
+  shape average 50000000
+  service-policy WAN_EDGE_QUEUE
+!
+policy-map WAN_EDGE_SHAPE_20M
+ class class-default
+  shape average 20000000
+  service-policy WAN_EDGE_QUEUE
+!
+parameter-map type inspect global
+ log dropped-packets
+!
+zone security INSIDE
+zone security OUTSIDE
+zone security DMZ
+zone security GUEST
+!
+ip access-list extended ACL_CORP_TO_WAN
+ permit ip any any
+!
+ip access-list extended ACL_GUEST_TO_WAN
+ permit ip any any
+!
+ip access-list extended ACL_DMZ_TO_WAN
+ permit ip any any
+!
+class-map type inspect match-any CLASS_INSPECT_CORP_WAN
+ match access-group name ACL_CORP_TO_WAN
+!
+class-map type inspect match-any CLASS_INSPECT_GUEST_WAN
+ match access-group name ACL_GUEST_TO_WAN
+!
+class-map type inspect match-any CLASS_INSPECT_DMZ_WAN
+ match access-group name ACL_DMZ_TO_WAN
+!
+policy-map type inspect POLICY_INSIDE_TO_OUTSIDE
+ class CLASS_INSPECT_CORP_WAN
+  inspect
+ class class-default
+  drop log
+!
+policy-map type inspect POLICY_GUEST_TO_OUTSIDE
+ class CLASS_INSPECT_GUEST_WAN
+  inspect
+ class class-default
+  drop log
+!
+policy-map type inspect POLICY_DMZ_TO_OUTSIDE
+ class CLASS_INSPECT_DMZ_WAN
+  inspect
+ class class-default
+  drop log
+!
+zone-pair security ZP_INSIDE_OUTSIDE source INSIDE destination OUTSIDE
+ service-policy type inspect POLICY_INSIDE_TO_OUTSIDE
+zone-pair security ZP_GUEST_OUTSIDE source GUEST destination OUTSIDE
+ service-policy type inspect POLICY_GUEST_TO_OUTSIDE
+zone-pair security ZP_DMZ_OUTSIDE source DMZ destination OUTSIDE
+ service-policy type inspect POLICY_DMZ_TO_OUTSIDE
+!
+ip sla 10
+ icmp-echo 8.8.8.8 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 10 life forever start-time now
+!
+ip sla 20
+ icmp-echo 8.8.4.4 source-interface GigabitEthernet0/0/1
+ frequency 5
+ip sla schedule 20 life forever start-time now
+!
+track 10 ip sla 10 reachability
+track 20 ip sla 20 reachability
+!
+ip dhcp excluded-address vrf VRF_CORP 10.110.10.1 10.110.10.50
+ip dhcp excluded-address vrf VRF_CORP 10.111.10.1 10.111.10.50
+ip dhcp excluded-address vrf VRF_CORP 10.112.10.1 10.112.10.50
+ip dhcp excluded-address vrf VRF_CORP 10.113.10.1 10.113.10.50
+ip dhcp excluded-address vrf VRF_CORP 10.120.10.1 10.120.10.50
+ip dhcp excluded-address vrf VRF_CORP 10.121.10.1 10.121.10.50
+ip dhcp excluded-address vrf VRF_CORP 10.122.10.1 10.122.10.50
+ip dhcp excluded-address vrf VRF_CORP 10.123.10.1 10.123.10.50
+!
+ip dhcp pool DHCP_CORP_DATA_110
+ vrf VRF_CORP
+ network 10.110.10.0 255.255.255.0
+ default-router 10.110.10.1
+ dns-server 8.8.8.8 8.8.4.4
+ domain-name corp.enterprise.com
+ lease 8 0
+!
+ip dhcp pool DHCP_CORP_DATA_111
+ vrf VRF_CORP
+ network 10.111.10.0 255.255.255.0
+ default-router 10.111.10.1
+ dns-server 8.8.8.8 8.8.4.4
+ domain-name corp.enterprise.com
+ lease 8 0
+!
+ip dhcp pool DHCP_CORP_DATA_112
+ vrf VRF_CORP
+ network 10.112.10.0 255.255.255.0
+ default-router 10.112.10.1
+ dns-server 8.8.8.8 8.8.4.4
+ domain-name corp.enterprise.com
+ lease 8 0
+!
+ip dhcp pool DHCP_CORP_DATA_113
+ vrf VRF_CORP
+ network 10.113.10.0 255.255.255.0
+ default-router 10.113.10.1
+ dns-server 8.8.8.8 8.8.4.4
+ domain-name corp.enterprise.com
+ lease 8 0
+!
+ip dhcp pool DHCP_CORP_DATA_120
+ vrf VRF_CORP
+ network 10.120.10.0 255.255.255.0
+ default-router 10.120.10.1
+ dns-server 8.8.8.8 8.8.4.4
+ domain-name corp.enterprise.com
+ lease 8 0
+!
+ip dhcp pool DHCP_CORP_DATA_121
+ vrf VRF_CORP
+ network 10.121.10.0 255.255.255.0
+ default-router 10.121.10.1
+ dns-server 8.8.8.8 8.8.4.4
+ domain-name corp.enterprise.com
+ lease 8 0
+!
+ip dhcp pool DHCP_CORP_DATA_122
+ vrf VRF_CORP
+ network 10.122.10.0 255.255.255.0
+ default-router 10.122.10.1
+ dns-server 8.8.8.8 8.8.4.4
+ domain-name corp.enterprise.com
+ lease 8 0
+!
+ip dhcp pool DHCP_CORP_DATA_123
+ vrf VRF_CORP
+ network 10.123.10.0 255.255.255.0
+ default-router 10.123.10.1
+ dns-server 8.8.8.8 8.8.4.4
+ domain-name corp.enterprise.com
+ lease 8 0
+!
+interface GigabitEthernet0/0/0
+ ip address 192.0.2.2 255.255.255.252
+ ip nbar protocol-discovery
+ zone-member security OUTSIDE
+ service-policy output WAN_EDGE_SHAPE_100M
+ no shutdown
+!
+interface GigabitEthernet0/0/1
+ ip address 198.51.100.2 255.255.255.252
+ ip nbar protocol-discovery
+ zone-member security OUTSIDE
+ service-policy output WAN_EDGE_SHAPE_50M
+ no shutdown
+!
+interface Tunnel0
+ ip address 172.16.0.2 255.255.255.0
+ ip nhrp network-id 1
+ ip nhrp nhop 172.16.0.1
+ ip nhrp shortcut
+ ip nhrp redirect
+ tunnel source GigabitEthernet0/0/0
+ tunnel destination 192.0.2.1
+ tunnel protection ipsec profile IPSEC_PROFILE
+ no shutdown
+!
+interface Tunnel1
+ ip address 172.16.1.2 255.255.255.0
+ ip nhrp network-id 2
+ ip nhrp nhop 172.16.1.1
+ ip nhrp shortcut
+ ip nhrp redirect
+ tunnel source GigabitEthernet0/0/1
+ tunnel destination 198.51.100.1
+ tunnel protection ipsec profile IPSEC_PROFILE
+ no shutdown
+!
+interface GigabitEthernet0/1/0
+ no ip address
+ negotiation auto
+ no shutdown
+!
+interface GigabitEthernet0/1/0.10
+ encapsulation dot1Q 10
+ vrf forwarding VRF_CORP
+ ip address 10.110.10.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/0.11
+ encapsulation dot1Q 11
+ vrf forwarding VRF_VOICE
+ ip address 10.110.11.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/0.20
+ encapsulation dot1Q 20
+ vrf forwarding VRF_GUEST
+ ip address 10.110.20.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security GUEST
+ no shutdown
+!
+interface GigabitEthernet0/1/0.30
+ encapsulation dot1Q 30
+ vrf forwarding VRF_IOT
+ ip address 10.110.30.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/0.40
+ encapsulation dot1Q 40
+ vrf forwarding VRF_CORP
+ ip address 10.110.40.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/0.50
+ encapsulation dot1Q 50
+ vrf forwarding VRF_IOT
+ ip address 10.110.50.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/0.60
+ encapsulation dot1Q 60
+ vrf forwarding VRF_CORP
+ ip address 10.110.60.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/0.70
+ encapsulation dot1Q 70
+ ip address 10.110.70.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/0.80
+ encapsulation dot1Q 80
+ ip address 10.110.80.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/1
+ no ip address
+ negotiation auto
+ no shutdown
+!
+interface GigabitEthernet0/1/1.10
+ encapsulation dot1Q 10
+ vrf forwarding VRF_CORP
+ ip address 10.111.10.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/1.11
+ encapsulation dot1Q 11
+ vrf forwarding VRF_VOICE
+ ip address 10.111.11.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/1.20
+ encapsulation dot1Q 20
+ vrf forwarding VRF_GUEST
+ ip address 10.111.20.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security GUEST
+ no shutdown
+!
+interface GigabitEthernet0/1/1.30
+ encapsulation dot1Q 30
+ vrf forwarding VRF_IOT
+ ip address 10.111.30.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/1.40
+ encapsulation dot1Q 40
+ vrf forwarding VRF_CORP
+ ip address 10.111.40.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/1.50
+ encapsulation dot1Q 50
+ vrf forwarding VRF_IOT
+ ip address 10.111.50.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/1.60
+ encapsulation dot1Q 60
+ vrf forwarding VRF_CORP
+ ip address 10.111.60.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/1.70
+ encapsulation dot1Q 70
+ ip address 10.111.70.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/1.80
+ encapsulation dot1Q 80
+ ip address 10.111.80.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/2
+ no ip address
+ negotiation auto
+ no shutdown
+!
+interface GigabitEthernet0/1/2.10
+ encapsulation dot1Q 10
+ vrf forwarding VRF_CORP
+ ip address 10.112.10.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/2.11
+ encapsulation dot1Q 11
+ vrf forwarding VRF_VOICE
+ ip address 10.112.11.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/2.20
+ encapsulation dot1Q 20
+ vrf forwarding VRF_GUEST
+ ip address 10.112.20.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security GUEST
+ no shutdown
+!
+interface GigabitEthernet0/1/2.30
+ encapsulation dot1Q 30
+ vrf forwarding VRF_IOT
+ ip address 10.112.30.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/2.40
+ encapsulation dot1Q 40
+ vrf forwarding VRF_CORP
+ ip address 10.112.40.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/2.50
+ encapsulation dot1Q 50
+ vrf forwarding VRF_IOT
+ ip address 10.112.50.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/2.60
+ encapsulation dot1Q 60
+ vrf forwarding VRF_CORP
+ ip address 10.112.60.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/2.70
+ encapsulation dot1Q 70
+ ip address 10.112.70.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/2.80
+ encapsulation dot1Q 80
+ ip address 10.112.80.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/3
+ no ip address
+ negotiation auto
+ no shutdown
+!
+interface GigabitEthernet0/1/3.10
+ encapsulation dot1Q 10
+ vrf forwarding VRF_CORP
+ ip address 10.113.10.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/3.11
+ encapsulation dot1Q 11
+ vrf forwarding VRF_VOICE
+ ip address 10.113.11.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/3.20
+ encapsulation dot1Q 20
+ vrf forwarding VRF_GUEST
+ ip address 10.113.20.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security GUEST
+ no shutdown
+!
+interface GigabitEthernet0/1/3.30
+ encapsulation dot1Q 30
+ vrf forwarding VRF_IOT
+ ip address 10.113.30.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/3.40
+ encapsulation dot1Q 40
+ vrf forwarding VRF_CORP
+ ip address 10.113.40.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/3.50
+ encapsulation dot1Q 50
+ vrf forwarding VRF_IOT
+ ip address 10.113.50.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/3.60
+ encapsulation dot1Q 60
+ vrf forwarding VRF_CORP
+ ip address 10.113.60.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/3.70
+ encapsulation dot1Q 70
+ ip address 10.113.70.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/1/3.80
+ encapsulation dot1Q 80
+ ip address 10.113.80.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/0
+ no ip address
+ negotiation auto
+ no shutdown
+!
+interface GigabitEthernet0/2/0.10
+ encapsulation dot1Q 10
+ vrf forwarding VRF_CORP
+ ip address 10.120.10.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/0.11
+ encapsulation dot1Q 11
+ vrf forwarding VRF_VOICE
+ ip address 10.120.11.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/0.20
+ encapsulation dot1Q 20
+ vrf forwarding VRF_GUEST
+ ip address 10.120.20.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security GUEST
+ no shutdown
+!
+interface GigabitEthernet0/2/0.30
+ encapsulation dot1Q 30
+ vrf forwarding VRF_IOT
+ ip address 10.120.30.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/0.40
+ encapsulation dot1Q 40
+ vrf forwarding VRF_CORP
+ ip address 10.120.40.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/0.50
+ encapsulation dot1Q 50
+ vrf forwarding VRF_IOT
+ ip address 10.120.50.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/0.60
+ encapsulation dot1Q 60
+ vrf forwarding VRF_CORP
+ ip address 10.120.60.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/0.70
+ encapsulation dot1Q 70
+ ip address 10.120.70.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/0.80
+ encapsulation dot1Q 80
+ ip address 10.120.80.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/1
+ no ip address
+ negotiation auto
+ no shutdown
+!
+interface GigabitEthernet0/2/1.10
+ encapsulation dot1Q 10
+ vrf forwarding VRF_CORP
+ ip address 10.121.10.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/1.11
+ encapsulation dot1Q 11
+ vrf forwarding VRF_VOICE
+ ip address 10.121.11.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/1.20
+ encapsulation dot1Q 20
+ vrf forwarding VRF_GUEST
+ ip address 10.121.20.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security GUEST
+ no shutdown
+!
+interface GigabitEthernet0/2/1.30
+ encapsulation dot1Q 30
+ vrf forwarding VRF_IOT
+ ip address 10.121.30.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/1.40
+ encapsulation dot1Q 40
+ vrf forwarding VRF_CORP
+ ip address 10.121.40.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/1.50
+ encapsulation dot1Q 50
+ vrf forwarding VRF_IOT
+ ip address 10.121.50.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/1.60
+ encapsulation dot1Q 60
+ vrf forwarding VRF_CORP
+ ip address 10.121.60.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/1.70
+ encapsulation dot1Q 70
+ ip address 10.121.70.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/1.80
+ encapsulation dot1Q 80
+ ip address 10.121.80.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/2
+ no ip address
+ negotiation auto
+ no shutdown
+!
+interface GigabitEthernet0/2/2.10
+ encapsulation dot1Q 10
+ vrf forwarding VRF_CORP
+ ip address 10.122.10.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/2.11
+ encapsulation dot1Q 11
+ vrf forwarding VRF_VOICE
+ ip address 10.122.11.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/2.20
+ encapsulation dot1Q 20
+ vrf forwarding VRF_GUEST
+ ip address 10.122.20.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security GUEST
+ no shutdown
+!
+interface GigabitEthernet0/2/2.30
+ encapsulation dot1Q 30
+ vrf forwarding VRF_IOT
+ ip address 10.122.30.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/2.40
+ encapsulation dot1Q 40
+ vrf forwarding VRF_CORP
+ ip address 10.122.40.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/2.50
+ encapsulation dot1Q 50
+ vrf forwarding VRF_IOT
+ ip address 10.122.50.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/2.60
+ encapsulation dot1Q 60
+ vrf forwarding VRF_CORP
+ ip address 10.122.60.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/2.70
+ encapsulation dot1Q 70
+ ip address 10.122.70.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/2.80
+ encapsulation dot1Q 80
+ ip address 10.122.80.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/3
+ no ip address
+ negotiation auto
+ no shutdown
+!
+interface GigabitEthernet0/2/3.10
+ encapsulation dot1Q 10
+ vrf forwarding VRF_CORP
+ ip address 10.123.10.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/3.11
+ encapsulation dot1Q 11
+ vrf forwarding VRF_VOICE
+ ip address 10.123.11.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/3.20
+ encapsulation dot1Q 20
+ vrf forwarding VRF_GUEST
+ ip address 10.123.20.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security GUEST
+ no shutdown
+!
+interface GigabitEthernet0/2/3.30
+ encapsulation dot1Q 30
+ vrf forwarding VRF_IOT
+ ip address 10.123.30.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/3.40
+ encapsulation dot1Q 40
+ vrf forwarding VRF_CORP
+ ip address 10.123.40.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/3.50
+ encapsulation dot1Q 50
+ vrf forwarding VRF_IOT
+ ip address 10.123.50.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/3.60
+ encapsulation dot1Q 60
+ vrf forwarding VRF_CORP
+ ip address 10.123.60.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/3.70
+ encapsulation dot1Q 70
+ ip address 10.123.70.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+interface GigabitEthernet0/2/3.80
+ encapsulation dot1Q 80
+ ip address 10.123.80.1 255.255.255.0
+ ip helper-address 10.100.10.15
+ ip nbar protocol-discovery
+ zone-member security INSIDE
+ no shutdown
+!
+router ospf 100 vrf VRF_CORP
+ router-id 10.255.255.1
+ log-adjacency-changes
+ redistribute bgp 65000 subnets
+ network 10.110.10.0 0.0.0.255 area 0
+ network 10.110.40.0 0.0.0.255 area 0
+ network 10.110.60.0 0.0.0.255 area 0
+ network 10.111.10.0 0.0.0.255 area 0
+ network 10.111.40.0 0.0.0.255 area 0
+ network 10.111.60.0 0.0.0.255 area 0
+ network 10.112.10.0 0.0.0.255 area 0
+ network 10.112.40.0 0.0.0.255 area 0
+ network 10.112.60.0 0.0.0.255 area 0
+ network 10.113.10.0 0.0.0.255 area 0
+ network 10.113.40.0 0.0.0.255 area 0
+ network 10.113.60.0 0.0.0.255 area 0
+ network 10.120.10.0 0.0.0.255 area 0
+ network 10.120.40.0 0.0.0.255 area 0
+ network 10.120.60.0 0.0.0.255 area 0
+ network 10.121.10.0 0.0.0.255 area 0
+ network 10.121.40.0 0.0.0.255 area 0
+ network 10.121.60.0 0.0.0.255 area 0
+ network 10.122.10.0 0.0.0.255 area 0
+ network 10.122.40.0 0.0.0.255 area 0
+ network 10.122.60.0 0.0.0.255 area 0
+ network 10.123.10.0 0.0.0.255 area 0
+ network 10.123.40.0 0.0.0.255 area 0
+ network 10.123.60.0 0.0.0.255 area 0
+!
+router ospf 200 vrf VRF_VOICE
+ router-id 10.255.255.2
+ log-adjacency-changes
+ redistribute bgp 65000 subnets
+ network 10.110.11.0 0.0.0.255 area 0
+ network 10.111.11.0 0.0.0.255 area 0
+ network 10.112.11.0 0.0.0.255 area 0
+ network 10.113.11.0 0.0.0.255 area 0
+ network 10.120.11.0 0.0.0.255 area 0
+ network 10.121.11.0 0.0.0.255 area 0
+ network 10.122.11.0 0.0.0.255 area 0
+ network 10.123.11.0 0.0.0.255 area 0
+!
+router bgp 65000
+ bgp router-id 10.255.255.1
+ bgp log-neighbor-changes
+ neighbor 192.0.2.1 remote-as 65100
+ neighbor 192.0.2.1 update-source GigabitEthernet0/0/0
+ neighbor 198.51.100.1 remote-as 65200
+ neighbor 198.51.100.1 update-source GigabitEthernet0/0/1
+ !
+ address-family ipv4
+  neighbor 192.0.2.1 activate
+  neighbor 192.0.2.1 route-map RM_WAN1_IN in
+  neighbor 192.0.2.1 route-map RM_WAN1_OUT out
+  neighbor 198.51.100.1 activate
+  neighbor 198.51.100.1 route-map RM_WAN2_IN in
+  neighbor 198.51.100.1 route-map RM_WAN2_OUT out
+  network 192.0.2.0 mask 255.255.255.252
+  network 198.51.100.0 mask 255.255.255.252
+  exit-address-family
+ !
+ address-family ipv4 vrf VRF_CORP
+  redistribute ospf 100 vrf VRF_CORP match internal external 1 external 2
+  neighbor 172.16.0.1 remote-as 65001
+  neighbor 172.16.0.1 activate
+  neighbor 172.16.0.1 as-override
+  exit-address-family
+ !
+ address-family ipv4 vrf VRF_VOICE
+  redistribute ospf 200 vrf VRF_VOICE match internal external 1 external 2
+  neighbor 172.16.1.1 remote-as 65001
+  neighbor 172.16.1.1 activate
+  neighbor 172.16.1.1 as-override
+  exit-address-family
+ !
+ address-family ipv4 vrf VRF_GUEST
+  network 10.110.20.0 mask 255.255.255.0
+  network 10.111.20.0 mask 255.255.255.0
+  network 10.112.20.0 mask 255.255.255.0
+  network 10.113.20.0 mask 255.255.255.0
+  network 10.120.20.0 mask 255.255.255.0
+  network 10.121.20.0 mask 255.255.255.0
+  network 10.122.20.0 mask 255.255.255.0
+  network 10.123.20.0 mask 255.255.255.0
+  exit-address-family
+ !
+ address-family ipv4 vrf VRF_IOT
+  network 10.110.30.0 mask 255.255.255.0
+  network 10.110.50.0 mask 255.255.255.0
+  network 10.111.30.0 mask 255.255.255.0
+  network 10.111.50.0 mask 255.255.255.0
+  network 10.112.30.0 mask 255.255.255.0
+  network 10.112.50.0 mask 255.255.255.0
+  network 10.113.30.0 mask 255.255.255.0
+  network 10.113.50.0 mask 255.255.255.0
+  network 10.120.30.0 mask 255.255.255.0
+  network 10.120.50.0 mask 255.255.255.0
+  network 10.121.30.0 mask 255.255.255.0
+  network 10.121.50.0 mask 255.255.255.0
+  network 10.122.30.0 mask 255.255.255.0
+  network 10.122.50.0 mask 255.255.255.0
+  network 10.123.30.0 mask 255.255.255.0
+  network 10.123.50.0 mask 255.255.255.0
+  exit-address-family
+!
+ip prefix-list PL_CORP_SUBNETS seq 5 permit 10.110.0.0/16 ge 24 le 24
+ip prefix-list PL_CORP_SUBNETS seq 10 permit 10.111.0.0/16 ge 24 le 24
+ip prefix-list PL_CORP_SUBNETS seq 15 permit 10.112.0.0/16 ge 24 le 24
+ip prefix-list PL_CORP_SUBNETS seq 20 permit 10.113.0.0/16 ge 24 le 24
+ip prefix-list PL_CORP_SUBNETS seq 25 permit 10.120.0.0/16 ge 24 le 24
+ip prefix-list PL_CORP_SUBNETS seq 30 permit 10.121.0.0/16 ge 24 le 24
+ip prefix-list PL_CORP_SUBNETS seq 35 permit 10.122.0.0/16 ge 24 le 24
+ip prefix-list PL_CORP_SUBNETS seq 40 permit 10.123.0.0/16 ge 24 le 24
+!
+ip prefix-list PL_VOICE_SUBNETS seq 5 permit 10.110.11.0/24
+ip prefix-list PL_VOICE_SUBNETS seq 10 permit 10.111.11.0/24
+ip prefix-list PL_VOICE_SUBNETS seq 15 permit 10.112.11.0/24
+ip prefix-list PL_VOICE_SUBNETS seq 20 permit 10.113.11.0/24
+ip prefix-list PL_VOICE_SUBNETS seq 25 permit 10.120.11.0/24
+ip prefix-list PL_VOICE_SUBNETS seq 30 permit 10.121.11.0/24
+ip prefix-list PL_VOICE_SUBNETS seq 35 permit 10.122.11.0/24
+ip prefix-list PL_VOICE_SUBNETS seq 40 permit 10.123.11.0/24
+!
+ip prefix-list PL_GUEST_SUBNETS seq 5 permit 10.110.20.0/24
+ip prefix-list PL_GUEST_SUBNETS seq 10 permit 10.111.20.0/24
+ip prefix-list PL_GUEST_SUBNETS seq 15 permit 10.112.20.0/24
+ip prefix-list PL_GUEST_SUBNETS seq 20 permit 10.113.20.0/24
+ip prefix-list PL_GUEST_SUBNETS seq 25 permit 10.120.20.0/24
+ip prefix-list PL_GUEST_SUBNETS seq 30 permit 10.121.20.0/24
+ip prefix-list PL_GUEST_SUBNETS seq 35 permit 10.122.20.0/24
+ip prefix-list PL_GUEST_SUBNETS seq 40 permit 10.123.20.0/24
+!
+ip prefix-list PL_IOT_SUBNETS seq 5 permit 10.110.30.0/24
+ip prefix-list PL_IOT_SUBNETS seq 10 permit 10.110.50.0/24
+ip prefix-list PL_IOT_SUBNETS seq 15 permit 10.111.30.0/24
+ip prefix-list PL_IOT_SUBNETS seq 20 permit 10.111.50.0/24
+ip prefix-list PL_IOT_SUBNETS seq 25 permit 10.112.30.0/24
+ip prefix-list PL_IOT_SUBNETS seq 30 permit 10.112.50.0/24
+ip prefix-list PL_IOT_SUBNETS seq 35 permit 10.113.30.0/24
+ip prefix-list PL_IOT_SUBNETS seq 40 permit 10.113.50.0/24
+ip prefix-list PL_IOT_SUBNETS seq 45 permit 10.120.30.0/24
+ip prefix-list PL_IOT_SUBNETS seq 50 permit 10.120.50.0/24
+ip prefix-list PL_IOT_SUBNETS seq 55 permit 10.121.30.0/24
+ip prefix-list PL_IOT_SUBNETS seq 60 permit 10.121.50.0/24
+ip prefix-list PL_IOT_SUBNETS seq 65 permit 10.122.30.0/24
+ip prefix-list PL_IOT_SUBNETS seq 70 permit 10.122.50.0/24
+ip prefix-list PL_IOT_SUBNETS seq 75 permit 10.123.30.0/24
+ip prefix-list PL_IOT_SUBNETS seq 80 permit 10.123.50.0/24
+!
+route-map RM_WAN1_IN permit 10
+ match ip address prefix-list PL_CORP_SUBNETS
+ set local-preference 200
+!
+route-map RM_WAN1_IN permit 20
+ match ip address prefix-list PL_VOICE_SUBNETS
+ set local-preference 250
+!
+route-map RM_WAN1_IN permit 30
+ match ip address prefix-list PL_GUEST_SUBNETS
+ set local-preference 100
+!
+route-map RM_WAN1_IN permit 40
+ match ip address prefix-list PL_IOT_SUBNETS
+ set local-preference 80
+!
+route-map RM_WAN1_OUT permit 10
+ match ip address prefix-list PL_CORP_SUBNETS
+!
+route-map RM_WAN1_OUT permit 20
+ match ip address prefix-list PL_VOICE_SUBNETS
+ set as-path prepend 65000 65000
+!
+route-map RM_WAN2_IN permit 10
+ match ip address prefix-list PL_CORP_SUBNETS
+ set local-preference 100
+!
+route-map RM_WAN2_IN permit 20
+ match ip address prefix-list PL_VOICE_SUBNETS
+ set local-preference 150
+!
+route-map RM_WAN2_IN permit 30
+ match ip address prefix-list PL_GUEST_SUBNETS
+ set local-preference 200
+!
+route-map RM_WAN2_IN permit 40
+ match ip address prefix-list PL_IOT_SUBNETS
+ set local-preference 200
+!
+route-map RM_WAN2_OUT permit 10
+ match ip address prefix-list PL_CORP_SUBNETS
+ set as-path prepend 65000 65000
+!
+route-map RM_WAN2_OUT permit 20
+ match ip address prefix-list PL_VOICE_SUBNETS
+!
+ip access-list extended ACL_INSIDE_TO_OUTSIDE
+ permit tcp 10.0.0.0 0.255.255.255 any eq 80
+ permit tcp 10.0.0.0 0.255.255.255 any eq 443
+ permit tcp 10.0.0.0 0.255.255.255 any eq 22
+ permit udp 10.0.0.0 0.255.255.255 any eq 53
+ permit udp 10.0.0.0 0.255.255.255 any eq 123
+ permit icmp 10.0.0.0 0.255.255.255 any
+!
+ip access-list extended ACL_GUEST_TO_OUTSIDE
+ permit tcp 10.110.20.0 0.0.0.255 any eq 80
+ permit tcp 10.110.20.0 0.0.0.255 any eq 443
+ permit tcp 10.111.20.0 0.0.0.255 any eq 80
+ permit tcp 10.111.20.0 0.0.0.255 any eq 443
+ permit tcp 10.112.20.0 0.0.0.255 any eq 80
+ permit tcp 10.112.20.0 0.0.0.255 any eq 443
+ permit tcp 10.113.20.0 0.0.0.255 any eq 80
+ permit tcp 10.113.20.0 0.0.0.255 any eq 443
+ permit tcp 10.120.20.0 0.0.0.255 any eq 80
+ permit tcp 10.120.20.0 0.0.0.255 any eq 443
+ permit tcp 10.121.20.0 0.0.0.255 any eq 80
+ permit tcp 10.121.20.0 0.0.0.255 any eq 443
+ permit tcp 10.122.20.0 0.0.0.255 any eq 80
+ permit tcp 10.122.20.0 0.0.0.255 any eq 443
+ permit tcp 10.123.20.0 0.0.0.255 any eq 80
+ permit tcp 10.123.20.0 0.0.0.255 any eq 443
+ permit udp any any eq 53
+ deny ip any any
+!
+ip access-list extended ACL_COPP_ROUTING
+ permit ospf any any
+ permit tcp any any eq 179
+ permit tcp any eq 179 any
+ permit udp any any eq 646
+!
+ip access-list extended ACL_COPP_MGMT
+ permit tcp 10.10.80.0 0.0.0.255 any eq 22
+ permit tcp 192.168.100.0 0.0.0.255 any eq 22
+ permit udp 10.100.10.0 0.0.0.255 any eq 161
+ permit udp 10.100.10.0 0.0.0.255 any eq 162
+!
+ip access-list extended ACL_COPP_ICMP
+ permit icmp any any echo
+ permit icmp any any echo-reply
+ permit icmp any any time-exceeded
+ permit icmp any any unreachable
+!
+ip access-list extended VTY-ACL
+ permit tcp 10.10.80.0 0.0.0.255 any eq 22
+ permit tcp 192.168.100.0 0.0.0.255 any eq 22
+ deny ip any any log
+!
+ip nat pool NAT_POOL_WAN1 192.0.2.10 192.0.2.20 netmask 255.255.255.240
+ip nat pool NAT_POOL_WAN2 198.51.100.10 198.51.100.20 netmask 255.255.255.240
+!
+ip nat inside source list ACL_INSIDE_TO_OUTSIDE pool NAT_POOL_WAN1 overload
+ip nat inside source list ACL_GUEST_TO_OUTSIDE pool NAT_POOL_WAN2 overload
+!
+snmp-server community 7 0822455D0A161C181C RO 10
+snmp-server community 7 121A0C16110E081D RW 20
+snmp-server location Branch_Office_Rack_1
+snmp-server contact Network_Operations
+snmp-server enable traps snmp authentication linkdown linkup coldstart warmstart
+snmp-server enable traps hsrp
+snmp-server enable traps ipsec
+snmp-server enable traps bgp
+snmp-server enable traps ospf
+snmp-server host 10.100.10.20 version 2c public
+!
+ntp server vrf Mgmt-vrf 10.100.10.5 prefer
+ntp server vrf Mgmt-vrf 10.100.10.6
+!
+logging host 10.100.10.30 vrf Mgmt-vrf
+logging trap informational
+logging facility local7
+!
+line con 0
+ exec-timeout 5 0
+ privilege level 15
+ login authentication CONSOLE
+ stopbits 1
+!
+line vty 0 4
+ access-class VTY-ACL in
+ exec-timeout 10 0
+ privilege level 15
+ login authentication default
+ transport input ssh
+!
+line vty 5 15
+ access-class VTY-ACL in
+ exec-timeout 10 0
+ privilege level 15
+ login authentication default
+ transport input ssh
+!
+end
+write memory

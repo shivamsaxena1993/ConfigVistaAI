@@ -1,0 +1,14 @@
+database:
+  type: sqlite
+  path: database/configvista.db
+
+logging:
+  enabled: true
+
+backup:
+  enabled: true
+  path: database/backups
+
+exports:
+  enabled: true
+  path: database/exports

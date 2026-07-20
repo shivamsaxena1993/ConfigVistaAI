@@ -1,0 +1,147 @@
+Branch-R1#show running-config
+Building configuration...
+
+Current configuration : 10482 bytes
+!
+! Last configuration change at 09:15:10 IST Thu Jul 9 2026 by admin
+!
+version 17.9
+service timestamps debug datetime msec
+service timestamps log datetime msec
+service password-encryption
+service sequence-numbers
+!
+hostname Branch-R1
+!
+boot-start-marker
+boot-end-marker
+!
+ip cef
+no ip domain-lookup
+ip domain name configvista.local
+clock timezone IST 5 30
+!
+aaa new-model
+aaa authentication login default local
+aaa authorization exec default local
+!
+username admin privilege 15 secret 9 $9$EncryptedAdminPassword
+enable secret 9 $9$EncryptedEnablePassword
+!
+ip routing
+!
+vrf definition MGMT
+ rd 65000:501
+ address-family ipv4
+ exit-address-family
+!
+interface Loopback0
+ description Branch Router-ID
+ ip address 10.255.255.21 255.255.255.255
+!
+interface GigabitEthernet0/0/0
+ description MPLS WAN to Provider PE
+ ip address 172.20.1.2 255.255.255.252
+ ip ospf network point-to-point
+ service-policy output WAN-QOS
+ no shutdown
+!
+interface GigabitEthernet0/0/1
+ description Internet WAN
+ ip address 198.51.100.2 255.255.255.252
+ ip nat outside
+ no shutdown
+!
+interface GigabitEthernet0/0/2
+ description LAN Distribution
+ ip address 10.20.0.1 255.255.255.0
+ ip nat inside
+ ip ospf 10 area 10
+ no shutdown
+!
+interface GigabitEthernet0/0/3
+ description Guest LAN
+ ip address 10.20.50.1 255.255.255.0
+ ip nat inside
+ no shutdown
+!
+ip access-list standard NAT_INSIDE
+ permit 10.20.0.0 0.0.255.255
+!
+ip nat inside source list NAT_INSIDE interface GigabitEthernet0/0/1 overload
+!
+ip prefix-list BRANCH-LAN seq 10 permit 10.20.0.0/16 le 24
+!
+route-map RM-DEFAULT permit 10
+ match ip address prefix-list BRANCH-LAN
+!
+router ospf 10
+ router-id 10.255.255.21
+ passive-interface default
+ no passive-interface GigabitEthernet0/0/0
+ no passive-interface GigabitEthernet0/0/2
+ network 10.255.255.21 0.0.0.0 area 10
+ network 172.20.1.0 0.0.0.3 area 10
+ network 10.20.0.0 0.0.255.255 area 10
+ default-information originate
+!
+ip route 0.0.0.0 0.0.0.0 172.20.1.1 5
+ip route 0.0.0.0 0.0.0.0 198.51.100.1 50
+!
+ip sla 1
+ icmp-echo 172.20.1.1 source-interface GigabitEthernet0/0/0
+ frequency 10
+ timeout 3000
+ threshold 1000
+ip sla schedule 1 life forever start-time now
+!
+track 1 ip sla 1 reachability
+!
+class-map match-any VOICE
+ match dscp ef
+!
+policy-map WAN-QOS
+ class VOICE
+  priority percent 30
+ class class-default
+  fair-queue
+!
+logging buffered 16384 informational
+logging host 10.255.100.10
+logging host 10.255.100.11
+!
+ntp server 10.255.100.20 prefer
+ntp server 10.255.100.21
+!
+snmp-server community CONFIGVISTA-RO RO
+snmp-server location Bangalore-Branch1
+!
+ip ssh version 2
+!
+banner motd ^C
+******************************************************
+* Branch-R1                                           *
+* ConfigVista AI Enterprise Branch                    *
+******************************************************
+^C
+!
+line con 0
+ login local
+ logging synchronous
+!
+line vty 0 15
+ login local
+ transport input ssh
+!
+archive
+ log config
+  logging enable
+ path flash:archive
+ write-memory
+!
+event manager applet AUTO-SAVE
+ event syslog pattern "CONFIG_I"
+ action 1.0 cli command "enable"
+ action 2.0 cli command "write memory"
+!
+end

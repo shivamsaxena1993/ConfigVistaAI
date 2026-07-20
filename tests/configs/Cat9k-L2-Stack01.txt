@@ -1,0 +1,2095 @@
+version 17.09.01
+no service pad
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec show-timezone local
+service timestamps log datetime msec show-timezone local
+service password-encryption
+service password-recovery
+service sequence-numbers
+
+hostname Cat9k-L2-Stack01
+ip domain-name enterprise.local
+ip unique-hostname
+
+aaa new-model
+
+aaa group server tacacs+ TAC-SERVERS
+ server-private 10.100.10.10 key 7 0822455D0A161C181C
+ server-private 10.100.10.11 key 7 0822455D0A161C181C
+ ip source-interface Vlan80
+
+aaa group server radius RAD-SERVERS
+ server-private 10.100.10.12 auth-port 1812 acct-port 1813 key 7 121A0C16110E081D
+ server-private 10.100.10.13 auth-port 1812 acct-port 1813 key 7 121A0C16110E081D
+ ip source-interface Vlan80
+
+aaa authentication login default group TAC-SERVERS local
+aaa authentication login CONSOLE local
+aaa authorization exec default group TAC-SERVERS local
+aaa authorization commands 1 default group TAC-SERVERS local
+aaa authorization commands 15 default group TAC-SERVERS local
+aaa accounting exec default start-stop group TAC-SERVERS
+aaa accounting commands 1 default start-stop group TAC-SERVERS
+aaa accounting commands 15 default start-stop group TAC-SERVERS
+aaa accounting connection default start-stop group TAC-SERVERS
+
+username admin privilege 15 secret 9 $9$X7eD$K1pM$O8vR$1a2b3c4d5e6f
+
+clock timezone EST -5 0
+clock summer-time EDT recurring 2 March Sun 2:00 1 November Sun 2:00
+
+vlan 10
+ name CORP_DATA
+
+vlan 11
+ name CORP_VOICE
+
+vlan 20
+ name GUEST_WIFI
+
+vlan 30
+ name IOT_DEVICES
+
+vlan 40
+ name PRINTERS
+
+vlan 50
+ name IP_CAMERAS
+
+vlan 60
+ name SERVERS
+
+vlan 70
+ name DMZ
+
+vlan 80
+ name IN-BAND_MGMT
+
+spanning-tree mode mst
+spanning-tree mst extend system-id
+
+spanning-tree mst configuration
+ name ENTERPRISE_MST
+ revision 1
+ instance 1 vlan 10, 11, 20, 30, 40
+ instance 2 vlan 50, 60, 70, 80
+
+spanning-tree mst 1 priority 16384
+spanning-tree mst 2 priority 16384
+
+ip dhcp snooping vlan 10,11,20,30,40,50,60,70,80
+ip dhcp snooping database flash:dhcp_snoop.db
+ip dhcp snooping
+
+ip arp inspection vlan 10,11,20,30,40,50,60,70,80
+
+device-tracking policy IPDT_POLICY
+ security-level glean
+ device-role node
+ limit-address-count 10
+
+class-map match-any VOICE-CLASS
+ match dscp ef
+ match cos 5
+
+class-map match-any VIDEO-CLASS
+ match dscp af41
+ match dscp af42
+ match cos 4
+
+class-map match-any CRITICAL-DATA
+ match dscp af31
+ match dscp af21
+ match cos 3
+
+policy-map INGRESS-QOS
+ class VOICE-CLASS
+  set dscp ef
+  police 128000 conform-action transmit exceed-action drop
+ class VIDEO-CLASS
+  set dscp af41
+  police 5000000 conform-action transmit exceed-action markdown
+ class CRITICAL-DATA
+  set dscp af31
+ class class-default
+  set dscp default
+
+policy-map EGRESS-QUEUEING
+ class VOICE-CLASS
+  priority level 1
+ class VIDEO-CLASS
+  bandwidth remaining percent 20
+ class CRITICAL-DATA
+  bandwidth remaining percent 40
+ class class-default
+  bandwidth remaining percent 40
+
+interface Vlan80
+ description Management_SVI
+ ip address 10.10.80.10 255.255.255.0
+ no shutdown
+
+ip default-gateway 10.10.80.1
+
+interface GigabitEthernet1/0/1
+ description Corp_Workstation_1_0_1
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/2
+ description Corp_Workstation_1_0_2
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/3
+ description Corp_Workstation_1_0_3
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/4
+ description Corp_Workstation_1_0_4
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/5
+ description Corp_Workstation_1_0_5
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/6
+ description Corp_Workstation_1_0_6
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/7
+ description Corp_Workstation_1_0_7
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/8
+ description Corp_Workstation_1_0_8
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/9
+ description Corp_Workstation_1_0_9
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/10
+ description Corp_Workstation_1_0_10
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/11
+ description Corp_Workstation_1_0_11
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/12
+ description Corp_Workstation_1_0_12
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/13
+ description Corp_Workstation_1_0_13
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/14
+ description Corp_Workstation_1_0_14
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/15
+ description Corp_Workstation_1_0_15
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/16
+ description Corp_Workstation_1_0_16
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/17
+ description Corp_Workstation_1_0_17
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/18
+ description Corp_Workstation_1_0_18
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/19
+ description Corp_Workstation_1_0_19
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/20
+ description Corp_Workstation_1_0_20
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/21
+ description Corp_Workstation_1_0_21
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/22
+ description Corp_Workstation_1_0_22
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/23
+ description Corp_Workstation_1_0_23
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/24
+ description Corp_Workstation_1_0_24
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/25
+ description Printer_1_0_25
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/26
+ description Printer_1_0_26
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/27
+ description Printer_1_0_27
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/28
+ description Printer_1_0_28
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/29
+ description Printer_1_0_29
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/30
+ description Printer_1_0_30
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/31
+ description Printer_1_0_31
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/32
+ description Printer_1_0_32
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/33
+ description Printer_1_0_33
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/34
+ description Printer_1_0_34
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/35
+ description Printer_1_0_35
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/36
+ description Printer_1_0_36
+ switchport access vlan 40
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/37
+ description Camera_1_0_37
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/38
+ description Camera_1_0_38
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/39
+ description Camera_1_0_39
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/40
+ description Camera_1_0_40
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/41
+ description Camera_1_0_41
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/42
+ description Camera_1_0_42
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/43
+ description Camera_1_0_43
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/44
+ description Camera_1_0_44
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/45
+ description Camera_1_0_45
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/46
+ description Camera_1_0_46
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/47
+ description Camera_1_0_47
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet1/0/48
+ description Camera_1_0_48
+ switchport access vlan 50
+ switchport mode access
+ switchport port-security maximum 1
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/1
+ description Corp_Workstation_2_0_1
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/2
+ description Corp_Workstation_2_0_2
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/3
+ description Corp_Workstation_2_0_3
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/4
+ description Corp_Workstation_2_0_4
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/5
+ description Corp_Workstation_2_0_5
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/6
+ description Corp_Workstation_2_0_6
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/7
+ description Corp_Workstation_2_0_7
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/8
+ description Corp_Workstation_2_0_8
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/9
+ description Corp_Workstation_2_0_9
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/10
+ description Corp_Workstation_2_0_10
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/11
+ description Corp_Workstation_2_0_11
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/12
+ description Corp_Workstation_2_0_12
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/13
+ description Corp_Workstation_2_0_13
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/14
+ description Corp_Workstation_2_0_14
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/15
+ description Corp_Workstation_2_0_15
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/16
+ description Corp_Workstation_2_0_16
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/17
+ description Corp_Workstation_2_0_17
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/18
+ description Corp_Workstation_2_0_18
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/19
+ description Corp_Workstation_2_0_19
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/20
+ description Corp_Workstation_2_0_20
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/21
+ description Corp_Workstation_2_0_21
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/22
+ description Corp_Workstation_2_0_22
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/23
+ description Corp_Workstation_2_0_23
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/24
+ description Corp_Workstation_2_0_24
+ switchport access vlan 10
+ switchport voice vlan 11
+ switchport mode access
+ switchport port-security maximum 3
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/25
+ description Guest_AP_2_0_25
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/26
+ description Guest_AP_2_0_26
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/27
+ description Guest_AP_2_0_27
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/28
+ description Guest_AP_2_0_28
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/29
+ description Guest_AP_2_0_29
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/30
+ description Guest_AP_2_0_30
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/31
+ description Guest_AP_2_0_31
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/32
+ description Guest_AP_2_0_32
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/33
+ description Guest_AP_2_0_33
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/34
+ description Guest_AP_2_0_34
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/35
+ description Guest_AP_2_0_35
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/36
+ description Guest_AP_2_0_36
+ switchport access vlan 20
+ switchport mode access
+ switchport port-security maximum 10
+ switchport port-security violation restrict
+ switchport port-security aging time 2
+ switchport port-security aging type inactivity
+ switchport port-security
+ storm-control broadcast level 5.0
+ storm-control multicast level 5.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 50
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/37
+ description IoT_Device_2_0_37
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/38
+ description IoT_Device_2_0_38
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/39
+ description IoT_Device_2_0_39
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/40
+ description IoT_Device_2_0_40
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/41
+ description IoT_Device_2_0_41
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/42
+ description IoT_Device_2_0_42
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/43
+ description IoT_Device_2_0_43
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/44
+ description IoT_Device_2_0_44
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/45
+ description IoT_Device_2_0_45
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/46
+ description IoT_Device_2_0_46
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/47
+ description IoT_Device_2_0_47
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface GigabitEthernet2/0/48
+ description IoT_Device_2_0_48
+ switchport access vlan 30
+ switchport mode access
+ switchport port-security maximum 2
+ switchport port-security violation shutdown
+ switchport port-security
+ storm-control broadcast level 1.0
+ storm-control multicast level 2.0
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ ip dhcp snooping limit rate 15
+ device-tracking attach-policy IPDT_POLICY
+ service-policy input INGRESS-QOS
+ service-policy output EGRESS-QUEUEING
+ no shutdown
+
+interface Port-channel10
+ description LACP_Trunk_to_Core_Switch_01
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+
+interface Port-channel20
+ description LACP_Trunk_to_Core_Switch_02
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+
+interface TenGigabitEthernet1/1/1
+ description Uplink_Port_1_to_Core_01
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 10 mode active
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+
+interface TenGigabitEthernet1/1/2
+ description Uplink_Port_2_to_Core_01
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 10 mode active
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+
+interface TenGigabitEthernet1/1/3
+ description Uplink_Port_1_to_Core_02
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 20 mode active
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+
+interface TenGigabitEthernet1/1/4
+ description Uplink_Port_2_to_Core_02
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 20 mode active
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+
+interface TenGigabitEthernet2/1/1
+ description Uplink_Port_3_to_Core_01
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 10 mode active
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+
+interface TenGigabitEthernet2/1/2
+ description Uplink_Port_4_to_Core_01
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 10 mode active
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+
+interface TenGigabitEthernet2/1/3
+ description Uplink_Port_3_to_Core_02
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 20 mode active
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+
+interface TenGigabitEthernet2/1/4
+ description Uplink_Port_4_to_Core_02
+ switchport mode trunk
+ switchport trunk allowed vlan 10,11,20,30,40,50,60,70,80
+ channel-group 20 mode active
+ ip dhcp snooping trust
+ ip arp inspection trust
+ no shutdown
+
+interface GigabitEthernet0/0
+ description Out-of-Band_Management_Port
+ ip address 192.168.100.10 255.255.255.0
+ no shutdown
+
+ip access-list extended VTY-ACL
+ permit tcp 10.10.80.0 0.0.0.255 any eq 22
+ permit tcp 192.168.100.0 0.0.0.255 any eq 22
+ deny ip any any log
+
+snmp-server community 7 0822455D0A161C181C RO 10
+snmp-server community 7 121A0C16110E081D RW 20
+snmp-server location Data_Center_Rack_03
+snmp-server contact IT_Operations
+snmp-server enable traps snmp authentication linkdown linkup coldstart warmstart
+snmp-server enable traps mac-notification change move threshold
+snmp-server enable traps vtp
+snmp-server host 10.100.10.20 version 2c public
+
+ntp server 10.100.10.5 prefer
+ntp server 10.100.10.6
+
+logging host 10.100.10.30
+logging trap informational
+logging facility local7
+
+line con 0
+ exec-timeout 5 0
+ privilege level 15
+ login authentication CONSOLE
+ stopbits 1
+
+line vty 0 4
+ access-class VTY-ACL in
+ exec-timeout 10 0
+ privilege level 15
+ login authentication default
+ transport input ssh
+
+line vty 5 15
+ access-class VTY-ACL in
+ exec-timeout 10 0
+ privilege level 15
+ login authentication default
+ transport input ssh
+
+end
+write memory  
+ 

@@ -1,0 +1,228 @@
+Dist-SW2#show running-config
+Building configuration...
+
+Current configuration : 8124 bytes
+!
+! Last configuration change at 12:22:10 IST Thu Jul 9 2026 by admin
+!
+version 17.9
+service timestamps debug datetime msec
+service timestamps log datetime msec
+service password-encryption
+service sequence-numbers
+!
+hostname Dist-SW2
+!
+boot-start-marker
+boot-end-marker
+!
+no ip domain-lookup
+ip domain name configvista.local
+login block-for 120 attempts 3 within 60
+!
+aaa new-model
+aaa authentication login default local
+aaa authorization exec default local
+aaa accounting exec default start-stop local
+!
+username admin privilege 15 secret 9 $9$EncryptedEnablePassword
+username operator privilege 5 secret 9 $9$EncryptedOperatorPassword
+enable secret 9 $9$EncryptedEnablePassword
+!
+ip routing
+ip cef
+system mtu jumbo 9198
+vtp mode transparent
+!
+spanning-tree mode rapid-pvst
+spanning-tree extend system-id
+spanning-tree vlan 10,20,30,40,50,99 priority 8192
+spanning-tree loopguard default
+spanning-tree portfast default
+spanning-tree portfast bpduguard default
+!
+errdisable recovery cause bpduguard
+errdisable recovery cause security-violation
+errdisable recovery interval 300
+udld enable
+udld aggressive
+port-channel load-balance src-dst-ip
+!
+vlan 10
+ name MANAGEMENT
+vlan 20
+ name SERVERS
+vlan 30
+ name USERS
+vlan 40
+ name VOICE
+vlan 50
+ name GUEST
+vlan 99
+ name NATIVE
+vlan 100
+ name INFRASTRUCTURE
+!
+interface Loopback0
+ description Distribution Router-ID
+ ip address 10.255.255.12 255.255.255.255
+!
+interface Port-channel10
+ description PortChannel to Core-R2
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,30,40,50,99,100
+!
+interface Port-channel20
+ description Distribution Interconnect to Dist-SW1
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan all
+!
+interface TenGigabitEthernet1/1/1
+ description Uplink to Core-R2
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,30,40,50,99,100
+ channel-group 10 mode active
+!
+interface TenGigabitEthernet1/1/2
+ description Uplink to Core-R2
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,30,40,50,99,100
+ channel-group 10 mode active
+!
+interface TenGigabitEthernet1/1/3
+ description Interconnect to Dist-SW1
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan all
+ channel-group 20 mode active
+!
+interface TenGigabitEthernet1/1/4
+ description Interconnect to Dist-SW1
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan all
+ channel-group 20 mode active
+!
+interface GigabitEthernet1/0/47
+ description Uplink to Access-SW03
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,30,40,50,99,100
+ ip dhcp snooping trust
+!
+interface GigabitEthernet1/0/48
+ description Uplink to Access-SW04
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,30,40,50,99,100
+ ip dhcp snooping trust
+!
+interface GigabitEthernet1/0/49
+ description Routed Link to Core-R1
+ no switchport
+ ip address 10.10.2.2 255.255.255.252
+ ip ospf network point-to-point
+!
+interface GigabitEthernet1/0/50
+ description Routed Link to Core-R2
+ no switchport
+ ip address 10.10.4.2 255.255.255.252
+ ip ospf network point-to-point
+!
+interface Vlan10
+ description Management Gateway
+ ip address 10.10.10.3 255.255.255.0
+ ip helper-address 10.255.100.60
+ standby version 2
+ standby 10 ip 10.10.10.1
+ standby 10 priority 100
+ standby 10 preempt
+!
+interface Vlan20
+ description Server Gateway
+ ip address 10.10.20.3 255.255.255.0
+ ip helper-address 10.255.100.60
+ standby version 2
+ standby 20 ip 10.10.20.1
+ standby 20 priority 100
+ standby 20 preempt
+!
+interface Vlan30
+ description User Gateway
+ ip address 10.10.30.3 255.255.255.0
+ ip helper-address 10.255.100.60
+ standby version 2
+ standby 30 ip 10.10.30.1
+ standby 30 priority 100
+ standby 30 preempt
+!
+interface Vlan40
+ description Voice Gateway
+ ip address 10.10.40.3 255.255.255.0
+ ip helper-address 10.255.100.60
+ standby version 2
+ standby 40 ip 10.10.40.1
+ standby 40 priority 100
+ standby 40 preempt
+!
+interface Vlan50
+ description Guest Gateway
+ ip address 10.10.50.3 255.255.255.0
+ ip helper-address 10.255.100.60
+ standby version 2
+ standby 50 ip 10.10.50.1
+ standby 50 priority 100
+ standby 50 preempt
+!
+interface Vlan100
+ description Infrastructure Gateway
+ ip address 10.10.100.3 255.255.255.0
+ standby version 2
+ standby 100 ip 10.10.100.1
+ standby 100 priority 100
+ standby 100 preempt
+!
+router ospf 10
+ router-id 10.255.255.12
+ auto-cost reference-bandwidth 100000
+ passive-interface default
+ no passive-interface GigabitEthernet1/0/49
+ no passive-interface GigabitEthernet1/0/50
+ network 10.255.255.12 0.0.0.0 area 0
+ network 10.10.2.0 0.0.0.3 area 0
+ network 10.10.4.0 0.0.0.3 area 0
+ network 10.10.10.0 0.0.0.255 area 0
+ network 10.10.20.0 0.0.0.255 area 0
+ network 10.10.30.0 0.0.0.255 area 0
+ network 10.10.40.0 0.0.0.255 area 0
+ network 10.10.50.0 0.0.0.255 area 0
+ network 10.10.100.0 0.0.0.255 area 0
+!
+ip route 0.0.0.0 0.0.0.0 10.10.4.1 10
+ip route 0.0.0.0 0.0.0.0 10.10.2.1 20
+!
+snmp-server community CONFIGVISTA-RO RO
+logging host 10.255.100.10
+logging host 10.255.100.11
+ntp server 10.255.100.20 prefer
+ntp server 10.255.100.21
+ip ssh version 2
+!
+banner motd ^C
+******************************************************
+* Dist-SW2 - Secondary Distribution Switch           *
+* ConfigVista AI Enterprise Lab                      *
+******************************************************
+^C
+!
+line con 0
+ login local
+line vty 0 15
+ login local
+ transport input ssh
+!
+end
