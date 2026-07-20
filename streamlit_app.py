@@ -1,192 +1,372 @@
 """
-====================================================================
-File: streamlit_app.py
+streamlit_app.py
 
-Project : ConfigVista AI
+ConfigVista AI
+Intelligent Network Configuration Comparison &
+Risk Assessment Framework
 
-Purpose
--------
-Main Streamlit Application
-
-This file orchestrates the UI components.
-
-====================================================================
+Author : Shivam Saxena
 """
 
-import os
+from pathlib import Path
 import tempfile
-import time
 
+import pandas as pd
 import streamlit as st
 
-from services.assessment_service import AssessmentService
-
-from ui.dashboard import (
-    render_sidebar,
-    render_header,
-    render_dashboard
-)
-
-from ui.summary import render_summary
-from ui.configuration import render_configuration
-from ui.risk import render_risk
-from ui.explanation import render_explanation
-from ui.recommendation import render_recommendations
-from ui.pipeline import render_pipeline
-from ui.knowledgebase import render_knowledgebase
+from comparison.comparison_engine import ComparisonEngine
+from comparison.report_generator import ReportGenerator
 
 
-
-# ==========================================================
-# PAGE CONFIGURATION
-# ==========================================================
+# -------------------------------------------------------
+# PAGE CONFIG
+# -------------------------------------------------------
 
 st.set_page_config(
     page_title="ConfigVista AI",
-    page_icon="🛰️",
+    page_icon="🛡️",
     layout="wide",
-    initial_sidebar_state="expanded"
 )
 
-# ==========================================================
-# HEADER & SIDEBAR
-# ==========================================================
+st.title("🛡️ ConfigVista AI")
 
-render_sidebar()
-
-render_header()
-
-render_dashboard()
-
-# ==========================================================
-# TABS
-# ==========================================================
-
-tab1, tab2 = st.tabs(
-    [
-        "🛰️ Run Assessment",
-        "📚 AI Knowledge Base"
-    ]
+st.subheader(
+    "Intelligent Network Configuration Comparison & Risk Assessment Framework"
 )
 
-# ==========================================================
-# TAB 1 - RUN ASSESSMENT
-# ==========================================================
+st.markdown("---")
 
-with tab1:
+# -------------------------------------------------------
+# SIDEBAR
+# -------------------------------------------------------
 
-    st.subheader("Upload Cisco Configuration")
+st.sidebar.header("Configuration Files")
 
-    uploaded_file = st.file_uploader(
-        "Choose a Cisco IOS Configuration File",
-        type=["txt", "cfg", "conf"]
+baseline_file = st.sidebar.file_uploader(
+    "Baseline Configuration",
+    type=["txt", "cfg", "conf"],
+)
+
+candidate_file = st.sidebar.file_uploader(
+    "Candidate Configuration",
+    type=["txt", "cfg", "conf"],
+)
+
+run_button = st.sidebar.button(
+    "Compare Configurations",
+    use_container_width=True,
+)
+
+st.sidebar.markdown("---")
+
+st.sidebar.info(
+    """
+Workflow
+
+1. Upload Baseline
+
+2. Upload Candidate
+
+3. Compare
+
+4. Review Risk
+
+5. Download Report
+"""
+)
+
+# -------------------------------------------------------
+# MAIN
+# -------------------------------------------------------
+
+if run_button:
+
+    if baseline_file is None or candidate_file is None:
+
+        st.error("Please upload both configuration files.")
+
+        st.stop()
+
+    with st.spinner("Comparing configurations..."):
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+
+            baseline_path = Path(temp_dir) / baseline_file.name
+            candidate_path = Path(temp_dir) / candidate_file.name
+
+            baseline_path.write_bytes(
+                baseline_file.getvalue()
+            )
+
+            candidate_path.write_bytes(
+                candidate_file.getvalue()
+            )
+
+            engine = ComparisonEngine()
+
+            result = engine.compare(
+                str(baseline_path),
+                str(candidate_path),
+            )
+
+            report = ReportGenerator()
+
+    st.success("Comparison completed successfully.")
+
+    # ---------------------------------------------------
+    # SUMMARY
+    # ---------------------------------------------------
+
+    st.header("Executive Summary")
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "Total Changes",
+        result.statistics.total_changes,
     )
 
-    if uploaded_file is not None:
+    c2.metric(
+        "Added",
+        result.statistics.added,
+    )
 
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".txt"
-        ) as temp:
+    c3.metric(
+        "Modified",
+        result.statistics.modified,
+    )
 
-            temp.write(uploaded_file.getvalue())
-            temp_file = temp.name
+    c4.metric(
+        "Removed",
+        result.statistics.removed,
+    )
 
-        with st.spinner(
-            "Running ConfigVista AI Assessment..."
-        ):
+    st.markdown("---")
 
-            try:
+    # ---------------------------------------------------
+    # RISK
+    # ---------------------------------------------------
 
-                start = time.perf_counter()
+    st.header("Risk Assessment")
 
-                assessment = AssessmentService().run(temp_file)
+    high = result.statistics.high_risk
+    medium = result.statistics.medium_risk
+    low = result.statistics.low_risk
 
-                elapsed = time.perf_counter() - start
+    risk_score = (
+        sum(c.risk_weight for c in result.changes)
+        / len(result.changes)
+        if result.changes
+        else 0
+    )
 
-                st.success("Assessment Completed Successfully")
-                st.caption(f"⏱️ Processing Time: {elapsed:.2f} seconds")
+    col1, col2 = st.columns(2)
 
-            except Exception as e:
-            
-                st.exception(e)
-                st.stop()
+    with col1:
 
-            finally:
-            
-                if os.path.exists(temp_file):
-                    os.remove(temp_file)
-
-        st.success(
-            "Assessment Completed Successfully"
+        st.metric(
+            "Average Risk Score",
+            f"{risk_score:.1f}/100",
         )
 
-        st.divider()
+        st.progress(min(risk_score / 100, 1.0))
 
-        # ---------------------------------------
-        # Assessment Summary
-        # ---------------------------------------
+    with col2:
 
-        render_summary(assessment)
+        st.metric("High Risk", high)
 
-        st.divider()
+        st.metric("Medium Risk", medium)
 
-        # ---------------------------------------
-        # Configuration Overview
-        # ---------------------------------------
+        st.metric("Low Risk", low)
 
-        render_configuration(assessment)
+    st.markdown("---")
 
-        st.divider()
+    # ---------------------------------------------------
+    # CATEGORY SUMMARY
+    # ---------------------------------------------------
 
-        # ---------------------------------------
-        # Risk Assessment
-        # ---------------------------------------
+    st.header("Category Summary")
 
-        render_risk(assessment)
+    category_df = pd.DataFrame(
+        [
+            {
+                "Category": item.category.value,
+                "Changes": item.total_changes,
+                "High": item.high_risk,
+                "Medium": item.medium_risk,
+                "Low": item.low_risk,
+            }
+            for item in result.category_summary
+        ]
+    )
 
-        st.divider()
+    if not category_df.empty:
+        st.dataframe(
+            category_df,
+            use_container_width=True,
+            hide_index=True,
+        )
 
-        # ---------------------------------------
-        # Explainable AI
-        # ---------------------------------------
+    st.markdown("---")
 
-        render_explanation(assessment)
+    # ---------------------------------------------------
+    # CHANGE DETAILS
+    # ---------------------------------------------------
 
-        st.divider()
+    st.header("Configuration Changes")
 
-        # ---------------------------------------
-        # Recommendations
-        # ---------------------------------------
+    rows = []
 
-        render_recommendations(assessment)
+    for change in result.changes:
 
-        st.divider()
+        rows.append(
 
-        # ---------------------------------------
-        # Pipeline
-        # ---------------------------------------
+            {
 
-        render_pipeline()
+                "Type": change.change_type.value,
 
-# ==========================================================
-# TAB 2 - AI KNOWLEDGE BASE
-# ==========================================================
+                "Category": change.category.value,
 
-with tab2:
+                "Section": change.section,
 
-    render_knowledgebase()
+                "Old Value": change.old_value,
 
-# ==========================================================
-# FOOTER
-# ==========================================================
+                "New Value": change.new_value,
 
-st.divider()
+                "Risk": change.risk_level.value,
 
-st.caption(
-    "ConfigVista AI | Intelligent Network Change Risk Prediction & Decision Support Framework"
-)
+                "Weight": change.risk_weight,
 
-st.caption(
-    "MSc Dissertation Prototype | Shivam Saxena | Version 1.0 MVP"
-)
+                "Confidence": change.confidence_score,
+
+                "Recommendation": change.recommendation,
+
+            }
+
+        )
+
+    change_df = pd.DataFrame(rows)
+
+    st.dataframe(
+        change_df,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.markdown("---")
+
+    # ---------------------------------------------------
+    # EXPANDABLE DETAILS
+    # ---------------------------------------------------
+
+    st.header("Detailed Analysis")
+
+    for index, change in enumerate(result.changes, start=1):
+
+        with st.expander(
+            f"{index}. {change.change_type.value} | "
+            f"{change.category.value} | "
+            f"{change.risk_level.value}"
+        ):
+
+            st.write("### Section")
+
+            st.code(change.section)
+
+            if change.old_value:
+
+                st.write("### Previous")
+
+                st.code(change.old_value)
+
+            if change.new_value:
+
+                st.write("### Updated")
+
+                st.code(change.new_value)
+
+            st.write("### Description")
+
+            st.write(change.description)
+
+            st.write("### Recommendation")
+
+            st.success(change.recommendation)
+
+            st.write("### Confidence")
+
+            st.progress(change.confidence_score / 100)
+
+    st.markdown("---")
+
+    # ---------------------------------------------------
+    # DOWNLOADS
+    # ---------------------------------------------------
+
+    st.header("Download Reports")
+
+    txt = report.generate_text_report(result)
+
+    md = report.generate_markdown_report(result)
+
+    html = report.generate_html_report(result)
+
+    json_report = report.generate_json_string(result)
+
+    d1, d2, d3, d4 = st.columns(4)
+
+    with d1:
+
+        st.download_button(
+            "Download TXT",
+            txt,
+            file_name="comparison_report.txt",
+        )
+
+    with d2:
+
+        st.download_button(
+            "Download Markdown",
+            md,
+            file_name="comparison_report.md",
+        )
+
+    with d3:
+
+        st.download_button(
+            "Download HTML",
+            html,
+            file_name="comparison_report.html",
+        )
+
+    with d4:
+
+        st.download_button(
+            "Download JSON",
+            json_report,
+            file_name="comparison_report.json",
+        )
+
+else:
+
+    st.info(
+        "Upload a baseline and candidate configuration using the sidebar to begin the comparison."
+    )
+
+    st.markdown(
+        """
+### Features
+
+- Configuration Difference Detection
+- Context-Aware Change Classification
+- Rule-Based Risk Assessment
+- Category-Wise Analysis
+- Confidence Score
+- Executive Summary
+- Multi-Format Report Generation
+"""
+    )
+
+    st.markdown("---")
+
+    st.caption("ConfigVista AI © 2026")
