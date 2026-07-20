@@ -1,49 +1,35 @@
 # ConfigVista AI
 
-**An Intelligent Network Configuration Change Risk Assessment Framework**
+## Intelligent Network Change Risk Prediction & Decision Support Framework
 
-ConfigVista AI is an AI-assisted network configuration analysis platform developed as part of a Master's dissertation. The system automates configuration comparison, classifies network changes, evaluates implementation risk, and generates detailed reports to assist network engineers during change management.
+![Python](https://img.shields.io/badge/Python-3.13-blue)
+![Streamlit](https://img.shields.io/badge/Streamlit-WebApp-red)
+![SQLite](https://img.shields.io/badge/Database-SQLite-green)
+![Status](https://img.shields.io/badge/Status-Phase%202%20Complete-success)
 
----
-
-# Project Overview
-
-Network changes are one of the leading causes of service outages in enterprise environments. Manual configuration review is time-consuming, error-prone, and difficult to scale.
-
-ConfigVista AI addresses this challenge by providing an intelligent framework that:
-
-- Compares baseline and candidate configurations
-- Detects configuration changes
-- Classifies changes by technology domain
-- Estimates implementation risk
-- Generates comprehensive comparison reports
-- Provides an interactive Streamlit dashboard
-
-The current implementation focuses on Cisco IOS-style configurations.
 
 ---
 
-# Features
+## Overview
 
-## Configuration Comparison
+ConfigVista AI is an intelligent network change assessment framework developed as part of an MSc dissertation.
 
-- Context-aware configuration comparison
-- Parent section detection
-- Line-by-line change tracking
-- Added / Removed / Modified detection
+The project assists network engineers in evaluating Cisco IOS configuration changes before deployment by automatically comparing configurations, classifying network changes, estimating operational risk, and generating actionable implementation recommendations.
 
-Supported configuration sections include:
-
-- Interfaces
-- Routing
-- Security
-- VLANs
-- Services
-- Management
+The current implementation (Artifact-1) provides a complete rule-based configuration comparison framework that serves as the baseline for future Machine Learning–based risk prediction.
 
 ---
 
-## Intelligent Change Classification
+# Key Features
+
+### Configuration Comparison
+
+- Compare Baseline and Candidate Cisco IOS configurations
+- Detect Added, Removed and Modified configuration lines
+- Hierarchical configuration parsing
+- Context-aware parent section mapping
+
+### Change Classification
 
 Automatically categorizes configuration changes into:
 
@@ -53,176 +39,170 @@ Automatically categorizes configuration changes into:
 - Security
 - Services
 - Management
+- System
 
----
+### Risk Evaluation
 
-## Risk Evaluation
+Rule-based operational risk prediction including:
 
-Rule-based risk assessment provides:
-
-- Risk Level
-    - High
-    - Medium
-    - Low
-
+- Risk Label
 - Risk Score
-
 - Confidence Score
+- Engineering Recommendation
 
-- Implementation Recommendations
+### Reporting
 
-Examples:
+Generate reports in multiple formats:
 
-| Change | Risk |
-|---------|------|
-| Interface IP Change | Low |
-| Interface Shutdown | Medium |
-| OSPF Change | High |
-| BGP Change | High |
-| ACL Modification | High |
-| Default Route Change | High |
-
----
-
-## Report Generation
-
-Automatically generates reports in multiple formats:
-
-- Text
-- Markdown
 - HTML
+- Markdown
 - JSON
+- Plain Text
 
-Each report includes:
+### Interactive Dashboard
 
+Streamlit dashboard provides:
+
+- Configuration upload
 - Executive Summary
-- Risk Summary
-- Category Summary
-- Detailed Change Analysis
-- Recommendations
-
----
-
-## Streamlit Dashboard
-
-Interactive dashboard supports:
-
-- Upload Baseline Configuration
-- Upload Candidate Configuration
-- Compare Configurations
 - Risk Dashboard
 - Category Summary
-- Detailed Change Explorer
-- Report Downloads
+- Detailed Change Analysis
+- Downloadable Reports
 
 ---
 
-# Project Architecture
+# Current Architecture
 
 ```
-                   +----------------------+
-                   | Configuration Files  |
-                   +----------+-----------+
-                              |
-                              v
-                  +------------------------+
-                  | Configuration Parser   |
-                  +-----------+------------+
-                              |
-                              v
-                  +------------------------+
-                  | Diff Engine            |
-                  +-----------+------------+
-                              |
-                              v
-                  +------------------------+
-                  | Change Classifier      |
-                  +-----------+------------+
-                              |
-                              v
-                  +------------------------+
-                  | Risk Evaluator         |
-                  +-----------+------------+
-                              |
-                              v
-                  +------------------------+
-                  | Comparison Engine      |
-                  +-----------+------------+
-                              |
-              +---------------+----------------+
-              |                                |
-              v                                v
-      Report Generator                Streamlit Dashboard
+           Baseline Configuration
+                     │
+                     │
+                     ▼
+          Configuration Normalization
+                     │
+                     ▼
+            Context-aware Parser
+                     │
+                     ▼
+             Hierarchical Diff Engine
+                     │
+                     ▼
+          Change Classification Engine
+                     │
+                     ▼
+             Rule-based Risk Engine
+                     │
+                     ▼
+              Report Generation
+                     │
+                     ▼
+             Streamlit Dashboard
 ```
 
 ---
 
-# Project Structure
+# Repository Structure
 
 ```
 ConfigVistaAI/
 
 │
-├── comparison/
-│   ├── change_classifier.py
-│   ├── comparison_engine.py
-│   ├── diff_engine.py
-│   ├── models.py
-│   ├── report_generator.py
-│   ├── risk_evaluator.py
-│   └── utils.py
-│
-├── database/
-│   ├── schema.sql
-│   ├── initialize_db.py
-│   ├── seed_data.py
-│   └── configvista.db
-│
-├── reports/
-│
-├── sample_configs/
-│
-├── tests/
-│   ├── test_diff_engine.py
-│   ├── test_change_classifier.py
-│   ├── test_risk_evaluator.py
-│   └── test_comparison_engine.py
-│
-├── docs/
+├── comparison/                 # Configuration comparison engine
+├── comparison_examples/        # Sample configurations
+├── configs/                    # Runtime configurations
+├── data/                       # Sample datasets
+├── database/                   # SQLite database & schema
+├── docs/                       # Documentation
+├── logs/                       # Application logs
+├── ml/                         # Machine Learning (Phase 3)
+├── mock_devices/               # Simulated device outputs
+├── models/                     # ML models
+├── observability/              # Monitoring & tracing
+├── parser/                     # Cisco configuration parser
+├── services/                   # Business logic
+├── tests/                      # Unit & integration tests
+├── tools/                      # Utility scripts
+├── ui/                         # UI components
 │
 ├── streamlit_app.py
+├── main.py
 ├── requirements.txt
 ├── README.md
-└── CHANGELOG.md
+└── .gitignore
 ```
 
 ---
 
 # Technology Stack
 
-Programming Language
+| Component | Technology |
+|------------|------------|
+| Language | Python 3.13 |
+| UI | Streamlit |
+| Database | SQLite |
+| ORM | SQLAlchemy |
+| Testing | unittest |
+| Version Control | Git / GitHub |
 
-- Python 3.11+
+---
 
-Libraries
+# Current Workflow
 
-- Streamlit
-- Pandas
-- SQLite
-- difflib
-- Dataclasses
-- Enum
-- JSON
+```
+Baseline Configuration
 
-Database
+        +
 
-- SQLite
+Candidate Configuration
 
-Development Tools
+        │
 
-- VS Code
-- Git
-- GitHub
+        ▼
+
+Normalization
+
+        ▼
+
+Context-aware Parsing
+
+        ▼
+
+Diff Engine
+
+        ▼
+
+Change Classification
+
+        ▼
+
+Risk Evaluation
+
+        ▼
+
+Report Generation
+
+        ▼
+
+Dashboard Visualization
+```
+
+---
+
+# Example Output
+
+The comparison engine produces:
+
+- Executive Summary
+- Overall Risk
+- Average Risk Score
+- Confidence Score
+- Added Changes
+- Removed Changes
+- Modified Changes
+- Category Summary
+- Detailed Change Analysis
+- Engineering Recommendations
 
 ---
 
@@ -231,12 +211,8 @@ Development Tools
 Clone the repository
 
 ```bash
-git clone https://github.com/<username>/ConfigVistaAI.git
-```
+git clone https://github.com/shivamsaxena1993/ConfigVistaAI.git
 
-Move into the project
-
-```bash
 cd ConfigVistaAI
 ```
 
@@ -246,7 +222,7 @@ Create virtual environment
 python -m venv venv
 ```
 
-Activate
+Activate environment
 
 Windows
 
@@ -254,7 +230,7 @@ Windows
 venv\Scripts\activate
 ```
 
-Linux / macOS
+Linux/Mac
 
 ```bash
 source venv/bin/activate
@@ -270,11 +246,13 @@ pip install -r requirements.txt
 
 # Running the Application
 
-Launch the Streamlit dashboard
+Launch Streamlit
 
 ```bash
 streamlit run streamlit_app.py
 ```
+
+The application opens in your browser.
 
 ---
 
@@ -286,117 +264,101 @@ Run Diff Engine tests
 python -m tests.test_diff_engine
 ```
 
-Run Comparison Engine integration test
+Run Classifier tests
+
+```bash
+python -m tests.test_change_classifier
+```
+
+Run Risk Evaluator tests
+
+```bash
+python -m tests.test_risk_evaluator
+```
+
+Run Integration Tests
 
 ```bash
 python -m tests.test_comparison_engine
 ```
 
-Run all tests
-
-```bash
-python -m pytest
-```
-
----
-
-# Example Workflow
-
-1. Upload Baseline Configuration
-
-↓
-
-2. Upload Candidate Configuration
-
-↓
-
-3. Compare Configurations
-
-↓
-
-4. Review Risk Assessment
-
-↓
-
-5. Download Reports
-
 ---
 
 # Current Project Status
 
-## Phase 1
-
-- Architecture Design
-- Database Design
-- Project Setup
+## Phase 1 — MVP
 
 Completed
-
----
-
-## Phase 2
 
 - Configuration Parser
-- Diff Engine
-- Change Classifier
-- Risk Evaluator
-- Report Generator
+- Feature Extraction
+- Initial Risk Assessment
+- SQLite Database
 - Streamlit Dashboard
-- Unit Testing
-- Integration Testing
-
-Completed
 
 ---
 
-## Phase 3 (Upcoming)
+## Phase 2 — Artifact-1
 
-Machine Learning Based Risk Prediction
+Completed
 
-Planned components:
+- Context-aware Parser
+- Hierarchical Diff Engine
+- Change Classification
+- Rule-based Risk Evaluation
+- Report Generator
+- Executive Dashboard
+- HTML / Markdown / JSON Reports
+- Unit Testing
+- Integration Testing
+- Repository Cleanup
+
+---
+
+## Phase 3 — Machine Learning (Planned)
+
+Upcoming work includes:
 
 - Dataset Generation
 - Feature Engineering
 - Random Forest Model
 - XGBoost Model
 - Model Evaluation
-- Risk Prediction API
-- AI-assisted Recommendations
+- SHAP Explainability
+- ML Risk Prediction
+- Hybrid Rule + ML Engine
+
+---
+
+# Dissertation Objective
+
+The research investigates whether Machine Learning can improve the prediction of operational risk associated with Cisco IOS configuration changes compared with deterministic rule-based assessment.
+
+The completed comparison engine provides the baseline against which future ML models will be evaluated.
+
+---
+
+# Documentation
+
+Project documentation is available in the **docs/** directory.
+
+- User Manual
+- System Architecture
+- Database Design
+- Development Notes
 
 ---
 
 # Future Enhancements
 
-- Multi-vendor configuration support
-- Juniper and Arista parsers
-- Configuration rollback prediction
-- Topology-aware change analysis
-- Real-time telemetry integration
+- Live SSH Device Collection
 - Retrieval-Augmented Generation (RAG)
-- Model Context Protocol (MCP) integration
-- LLM-assisted recommendation engine
-
----
-
-# Known Limitations
-
-Current version uses rule-based risk assessment.
-
-Configuration comparison is primarily line-based using Python's SequenceMatcher.
-
-Designed for Cisco IOS-style configurations.
-
-Machine Learning prediction will be introduced in Phase 3.
-
----
-
-# Dissertation
-
-**Title**
-
-ConfigVista AI: An Intelligent Network Change Risk Prediction and Retrieval-Augmented Decision Support Framework for Network Operations
-
-This project forms part of the MSc dissertation and demonstrates the application of Artificial Intelligence and Machine Learning to network change management.
+- Large Language Models (LLMs)
+- LangSmith Observability
+- Human-in-the-Loop Approval Workflow
+- Continuous Learning Pipeline
+- Enterprise Database Support
+- REST API
 
 ---
 
@@ -404,16 +366,18 @@ This project forms part of the MSc dissertation and demonstrates the application
 
 **Shivam Saxena**
 
-Technical Consulting Engineer
+MSc Dissertation
 
-Cisco Systems
+**ConfigVista AI**
 
-Master's Dissertation Project
+---
 
-2026
+# Acknowledgements
+
+This project is being developed as part of an MSc dissertation focusing on Intelligent Network Operations, Explainable AI, and Machine Learning for Network Change Risk Prediction.
 
 ---
 
 # License
 
-This project is intended for academic research and educational purposes.
+This project is licensed under the MIT License.
