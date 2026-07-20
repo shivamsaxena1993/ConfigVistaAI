@@ -378,6 +378,3 @@ This project is being developed as part of an MSc dissertation focusing on Intel
 
 ---
 
-# License
-
-This project is licensed under the MIT License.

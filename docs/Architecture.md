@@ -2,283 +2,561 @@
 
 ## Intelligent Network Change Risk Prediction & Decision Support Framework
 
-**Version:** MVP 1.0
+**Version:** 2.0 (Artifact-1)
+
+**Author:** Shivam Saxena
 
 ---
 
 # 1. Introduction
 
-ConfigVista AI follows a layered software architecture that separates presentation, business logic, persistence, and data management into independent modules.
+ConfigVista AI is an intelligent decision support framework designed to assist network engineers in assessing the operational risk of Cisco IOS configuration changes before deployment.
 
-This design improves maintainability, scalability, and future extensibility while supporting the planned integration of Machine Learning and Large Language Models.
+The system compares baseline and candidate configurations, identifies configuration differences, classifies changes into networking domains, evaluates operational risk using a rule-based engine, and generates detailed engineering reports.
+
+The architecture has been intentionally designed to support future integration of Machine Learning, Explainable AI (XAI), Retrieval-Augmented Generation (RAG), and Large Language Models (LLMs) without requiring major architectural changes.
 
 ---
 
-# 2. High-Level Architecture
+# 2. System Overview
+
+The application follows a modular layered architecture.
+
+Each layer performs a single responsibility, making the application easier to maintain, extend, and test.
 
 ```
                  Streamlit Dashboard
-                        │
-                        ▼
-                 Assessment Service
-                        │
-                        ▼
-     ┌─────────────────────────────────┐
-     │                                 │
-Parser → Feature Extraction → Risk Engine
-     │                                 │
-     └──────── Recommendation Engine ──┘
-                        │
-                        ▼
-               Persistence Service
-                        │
-                        ▼
-              SQLite Knowledge Base
+                         │
+                         ▼
+               Comparison Engine
+                         │
+     ┌───────────────────┼───────────────────┐
+     │                   │                   │
+     ▼                   ▼                   ▼
+ Configuration     Change Classification   Risk Evaluation
+     Parser
+     │
+     ▼
+Diff Engine
+     │
+     ▼
+Report Generator
+     │
+     ▼
+SQLite Database
 ```
 
 ---
 
-# 3. Layered Architecture
+# 3. High-Level Workflow
+
+```
+Baseline Configuration
+
+          +
+
+Candidate Configuration
+
+          │
+
+          ▼
+
+Configuration Normalization
+
+          ▼
+
+Context-aware Parsing
+
+          ▼
+
+Hierarchical Diff Engine
+
+          ▼
+
+Change Classification
+
+          ▼
+
+Risk Evaluation
+
+          ▼
+
+Recommendation Generation
+
+          ▼
+
+Report Generation
+
+          ▼
+
+Dashboard Visualization
+```
+
+---
+
+# 4. Layered Architecture
+
+---
 
 ## Presentation Layer
 
-Technology
+### Technology
 
 - Streamlit
 
-Responsibilities
+### Responsibilities
 
-- Configuration upload
-- Dashboard rendering
-- Risk visualization
-- Recommendation display
-- Knowledge Base
-
----
-
-## Service Layer
-
-Components
-
-- AssessmentService
-- PersistenceService
-- HistoryService
-
-Responsibilities
-
-- Orchestrate workflow
-- Manage application logic
-- Persist assessments
-- Retrieve historical data
+- Upload baseline configuration
+- Upload candidate configuration
+- Display comparison results
+- Display risk dashboard
+- Display category summaries
+- Export reports
 
 ---
 
-## Parser Layer
+## Comparison Layer
 
-Components
+### Components
 
-- ConfigParser
-- FeatureExtractor
+- Configuration Parser
+- Context Mapper
+- Diff Engine
 
-Responsibilities
+### Responsibilities
 
-- Parse Cisco configurations
-- Extract engineering features
-- Normalize configuration data
+- Normalize configurations
+- Build hierarchical configuration structure
+- Detect Added, Removed and Modified changes
+- Preserve parent-child relationships
 
 ---
 
 ## Intelligence Layer
 
-Components
+### Components
 
-- RiskEngine
-- RecommendationEngine
+- Change Classifier
+- Risk Evaluator
+- Recommendation Engine
 
-Responsibilities
+### Responsibilities
 
-- Predict operational risk
-- Calculate confidence score
-- Generate explainable recommendations
+- Categorize configuration changes
+- Calculate risk level
+- Generate confidence score
+- Produce engineering recommendations
+
+---
+
+## Reporting Layer
+
+### Components
+
+- Report Generator
+
+### Responsibilities
+
+Generate reports in:
+
+- HTML
+- Markdown
+- JSON
+- Plain Text
 
 ---
 
 ## Persistence Layer
 
-Components
-
-- SQLAlchemy ORM
-- Repository Pattern
-
-Responsibilities
-
-- CRUD operations
-- Database abstraction
-- Transaction management
-
----
-
-## Database Layer
-
-Technology
+### Technology
 
 SQLite
 
-Tables
+### Responsibilities
+
+- Store assessment history
+- Maintain configuration metadata
+- Persist future ML datasets
+
+---
+
+# 5. Component Architecture
+
+```
+               Streamlit Dashboard
+                        │
+                        ▼
+            Comparison Engine
+                        │
+        ┌───────────────┼───────────────┐
+        │               │               │
+        ▼               ▼               ▼
+   Config Parser   Diff Engine   Report Generator
+        │               │
+        ▼               ▼
+ Parent Mapper   Change Classifier
+                        │
+                        ▼
+                Risk Evaluator
+                        │
+                        ▼
+              Recommendation Engine
+                        │
+                        ▼
+                 SQLite Database
+```
+
+---
+
+# 6. Configuration Comparison Pipeline
+
+The comparison engine follows six sequential processing stages.
+
+---
+
+## Stage 1 — Configuration Normalization
+
+Purpose
+
+- Remove blank lines
+- Remove comments
+- Normalize whitespace
+- Ignore unsupported syntax
+- Standardize configuration format
+
+Output
+
+Normalized configuration.
+
+---
+
+## Stage 2 — Context-aware Parsing
+
+Purpose
+
+- Detect parent commands
+- Build configuration hierarchy
+- Identify configuration blocks
+- Preserve parent-child relationships
+
+Examples
+
+```
+interface GigabitEthernet0/1
+ ip address ...
+```
+
+Parent Section
+
+```
+interface GigabitEthernet0/1
+```
+
+Parent Type
+
+```
+interface
+```
+
+---
+
+## Stage 3 — Hierarchical Diff Engine
+
+Purpose
+
+Compare:
+
+- Baseline configuration
+- Candidate configuration
+
+Detect:
+
+- Added changes
+- Removed changes
+- Modified changes
+
+Unlike traditional text comparison, the engine preserves networking context.
+
+---
+
+## Stage 4 — Change Classification
+
+Each change is categorized into an engineering domain.
+
+Supported categories:
+
+- Interface
+- Routing
+- Switching
+- Security
+- Services
+- Management
+- System
+
+Examples
+
+```
+router ospf
+```
+
+↓
+
+Routing
+
+```
+access-list
+```
+
+↓
+
+Security
+
+```
+logging host
+```
+
+↓
+
+Management
+
+---
+
+## Stage 5 — Risk Evaluation
+
+The current implementation uses a deterministic rule-based engine.
+
+Each configuration change receives:
+
+- Risk Label
+- Risk Score
+- Confidence Score
+- Recommendation
+
+Example
+
+| Category | Risk |
+|-----------|------|
+| Interface | Low |
+| Switching | Medium |
+| Routing | High |
+| Security | High |
+
+---
+
+## Stage 6 — Report Generation
+
+Reports include:
+
+- Executive Summary
+- Overall Risk
+- Statistics
+- Category Summary
+- Detailed Changes
+- Engineering Recommendations
+
+Supported formats
+
+- HTML
+- Markdown
+- JSON
+- Plain Text
+
+---
+
+# 7. Core Modules
+
+## comparison/
+
+Contains the complete comparison framework.
+
+Modules
+
+- comparison_engine.py
+- diff_engine.py
+- change_classifier.py
+- risk_evaluator.py
+- report_generator.py
+- utils.py
+- models.py
+
+---
+
+## parser/
+
+Cisco IOS configuration parsing utilities.
+
+Responsibilities
+
+- Context mapping
+- Parent detection
+- Configuration normalization
+
+---
+
+## database/
+
+Responsibilities
+
+- Database schema
+- Initialization
+- Seed data
+- Persistence
+
+---
+
+## tests/
+
+Contains:
+
+- Unit Tests
+- Integration Tests
+
+---
+
+## docs/
+
+Project documentation.
+
+---
+
+## ml/
+
+Reserved for Machine Learning implementation.
+
+Current status
+
+Planning phase.
+
+---
+
+# 8. Database Architecture
+
+Current database technology:
+
+SQLite
+
+Primary tables include:
 
 - Roles
 - Users
 - Devices
 - Snapshots
 - Changes
-- Incidents
+
+Future versions may include:
+
 - FeatureStore
-- Recommendations
+- ModelMetrics
+- Predictions
+- Feedback
 - AuditLogs
 - TraceLogs
-- Feedback
-- ModelMetrics
-- ScenarioRuns
-- DatabaseVersion
+
+The database schema has been designed to support migration to PostgreSQL with minimal changes.
 
 ---
 
-# 4. Assessment Workflow
+# 9. Design Principles
+
+ConfigVista AI follows the following software engineering principles.
+
+### Layered Architecture
+
+Separates presentation, business logic and persistence.
+
+---
+
+### Separation of Concerns
+
+Each module has a single responsibility.
+
+---
+
+### Modular Design
+
+Components are independently extensible.
+
+---
+
+### Explainability
+
+Every prediction includes engineering reasoning.
+
+---
+
+### Testability
+
+Independent modules enable comprehensive unit testing.
+
+---
+
+### Scalability
+
+Future ML components can be integrated without redesigning the application.
+
+---
+
+# 10. Current Capabilities
+
+Artifact-1 currently supports:
+
+- Context-aware configuration comparison
+- Hierarchical parsing
+- Intelligent diff engine
+- Change classification
+- Rule-based risk evaluation
+- Engineering recommendations
+- Multi-format report generation
+- Streamlit dashboard
+- SQLite persistence
+- Unit testing
+- Integration testing
+
+---
+
+# 11. Future Architecture
+
+The next dissertation phase will introduce a Machine Learning layer.
 
 ```
-Cisco Configuration
-
-        │
-
-        ▼
-
-Configuration Parser
-
-        │
-
-        ▼
-
-Feature Extraction
-
-        │
-
-        ▼
-
-Risk Prediction
-
-        │
-
-        ▼
-
-Recommendation Engine
-
-        │
-
-        ▼
-
-Persistence Layer
-
-        │
-
-        ▼
-
-Knowledge Base
-
-        │
-
-        ▼
-
-Dashboard
+                Comparison Engine
+                        │
+                        ▼
+               Feature Engineering
+                        │
+                        ▼
+             Machine Learning Models
+            ┌────────────┴────────────┐
+            ▼                         ▼
+     Random Forest              XGBoost
+            │                         │
+            └────────────┬────────────┘
+                         ▼
+                 SHAP Explainability
+                         ▼
+              Hybrid Risk Prediction
+                         ▼
+               Recommendation Engine
 ```
 
----
+Future enhancements include:
 
-# 5. Repository Pattern
-
-The application follows the Repository Pattern to isolate business logic from persistence.
-
-Advantages include:
-
-- Separation of concerns
-- Reusable CRUD operations
-- Easier testing
-- Cleaner code
-- Database independence
-
-Current repositories include:
-
-- DeviceRepository
-- ChangeRepository
-- IncidentRepository
-- SnapshotRepository
-- RecommendationRepository
-- FeedbackRepository
-- MetricsRepository
-- AuditRepository
-
----
-
-# 6. Database Design
-
-SQLite is used during the MVP phase to provide a lightweight embedded database.
-
-The schema is normalized and designed to support future migration to enterprise databases such as PostgreSQL.
-
-Historical assessments form the foundation of the AI Knowledge Base.
-
----
-
-# 7. Explainable AI
-
-Unlike a traditional black-box prediction model, ConfigVista AI provides transparent reasoning behind every risk score.
-
-Each prediction includes:
-
-- Risk Score
-- Risk Label
-- Confidence Score
-- Contributing Factors
-- Engineering Explanation
-
-This enables engineers to understand why a recommendation was generated.
-
----
-
-# 8. Design Principles
-
-The project follows:
-
-- Layered Architecture
-- Repository Pattern
-- Service Layer Pattern
-- Modular UI Components
-- Explainable AI
-- Separation of Concerns
-- Clean Code Principles
-- Scalability
-
----
-
-# 9. Future Architecture
-
-Future dissertation work will extend the architecture by introducing:
-
+- Feature Engineering
+- Dataset Generation
 - Random Forest
 - XGBoost
 - SHAP Explainability
+- Hybrid Rule + ML Risk Prediction
 - Retrieval-Augmented Generation (RAG)
 - Large Language Models
 - LangSmith Observability
 - Human-in-the-Loop Governance
-- Live SSH Device Collection
-- Continuous Learning Pipeline
-
-The existing architecture has been designed so these capabilities can be integrated without major structural changes.
+- Continuous Learning
 
 ---
 
-# 10. Conclusion
+# 12. Conclusion
 
-The current MVP demonstrates an end-to-end intelligent assessment workflow, from configuration parsing through risk prediction and recommendation generation to persistent storage and visualization.
+The current implementation provides a complete end-to-end configuration comparison framework capable of analyzing Cisco IOS configuration changes, evaluating operational risk, and generating engineering recommendations.
 
-The layered architecture provides a robust foundation for the advanced AI and Machine Learning capabilities planned for the final dissertation.
+The modular architecture forms the baseline software artifact for this dissertation and provides a scalable foundation for the Machine Learning capabilities planned in the next phase of the research.
