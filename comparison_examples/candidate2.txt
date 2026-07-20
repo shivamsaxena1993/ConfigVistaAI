@@ -1,0 +1,60 @@
+hostname Branch-R2
+
+interface GigabitEthernet0/0
+ description MPLS Primary WAN
+ ip address 10.2.2.1 255.255.255.0
+ no shutdown
+
+interface GigabitEthernet0/1
+ description Internet Backup
+ ip address 172.16.10.1 255.255.255.0
+ shutdown
+
+interface GigabitEthernet0/2
+ description Management LAN
+ ip address 192.168.100.1 255.255.255.0
+ no shutdown
+
+router ospf 1
+ router-id 2.2.2.2
+ network 10.2.2.0 0.0.0.255 area 0
+ network 172.16.10.0 0.0.0.255 area 1
+ passive-interface GigabitEthernet0/2
+
+router bgp 65000
+ neighbor 192.168.254.1 remote-as 65100
+ network 10.2.2.0 mask 255.255.255.0
+
+ip route 0.0.0.0 0.0.0.0 10.2.2.254
+
+vlan 100
+ name USERS
+
+vlan 200
+ name SERVERS
+
+ip access-list standard MGMT
+ permit 192.168.100.0 0.0.0.255
+ deny any
+
+ntp server 10.20.20.20
+
+logging host 192.168.200.10
+
+snmp-server community ConfigVista RO
+
+banner motd ^
+************************************************
+Authorized Access Only
+Unauthorized access is prohibited.
+************************************************
+^
+
+service timestamps debug datetime msec
+service timestamps log datetime msec
+
+line vty 0 4
+ login local
+ transport input ssh
+
+end
