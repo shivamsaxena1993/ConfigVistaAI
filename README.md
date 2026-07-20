@@ -6,7 +6,7 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-WebApp-red)
 ![SQLite](https://img.shields.io/badge/Database-SQLite-green)
 ![Status](https://img.shields.io/badge/Status-Phase%202%20Complete-success)
-![License](https://img.shields.io/badge/License-MIT-blue)
+
 
 ---
 
