@@ -4,6 +4,8 @@ File: assessment_service.py
 
 Project : ConfigVista AI
 
+# Reserved for Phase 2 Integration
+
 Purpose
 -------
 Runs the complete ConfigVista AI assessment workflow.
@@ -65,25 +67,25 @@ class AssessmentService:
         # --------------------------------------------------
         # Feature Engineering
         # --------------------------------------------------
-        
+
         features = FeatureExtractor(parsed).extract()
-        
+
         # --------------------------------------------------
         # Feature Validation
         # --------------------------------------------------
-        
+
         features = FeatureValidator.validate(features)
-        
+
         # --------------------------------------------------
         # Risk Prediction
         # --------------------------------------------------
-        
+
         risk = RiskEngine(features).calculate()
-        
+
         # --------------------------------------------------
         # Recommendation Generation
         # --------------------------------------------------
-        
+
         recommendation = RecommendationEngine(
             features,
             risk

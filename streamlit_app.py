@@ -1,26 +1,41 @@
 """
-streamlit_app.py
+==========================================================
+File : streamlit_app.py
 
 ConfigVista AI
-Intelligent Network Configuration Comparison &
-Risk Assessment Framework
+
+Main Application
 
 Author : Shivam Saxena
+==========================================================
 """
 
-from pathlib import Path
+from __future__ import annotations
+
 import tempfile
 
-import pandas as pd
 import streamlit as st
 
 from comparison.comparison_engine import ComparisonEngine
-from comparison.report_generator import ReportGenerator
+
+from ui.dashboard import (
+    render_header,
+    render_sidebar,
+    render_overview,
+    render_footer,
+)
+
+from ui.summary import render_summary
+from ui.risk import render_risk
+from ui.category import render_category
+from ui.changes import render_changes
+from ui.details import render_details
+from ui.downloads import render_downloads
 
 
-# -------------------------------------------------------
-# PAGE CONFIG
-# -------------------------------------------------------
+# ==========================================================
+# PAGE CONFIGURATION
+# ==========================================================
 
 st.set_page_config(
     page_title="ConfigVista AI",
@@ -28,345 +43,122 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🛡️ ConfigVista AI")
+# ==========================================================
+# HEADER
+# ==========================================================
 
-st.subheader(
-    "Intelligent Network Configuration Comparison & Risk Assessment Framework"
-)
+render_header()
 
-st.markdown("---")
-
-# -------------------------------------------------------
+# ==========================================================
 # SIDEBAR
-# -------------------------------------------------------
+# ==========================================================
 
-st.sidebar.header("Configuration Files")
+baseline_file, candidate_file, run_button = render_sidebar()
 
-baseline_file = st.sidebar.file_uploader(
-    "Baseline Configuration",
-    type=["txt", "cfg", "conf"],
-)
-
-candidate_file = st.sidebar.file_uploader(
-    "Candidate Configuration",
-    type=["txt", "cfg", "conf"],
-)
-
-run_button = st.sidebar.button(
-    "Compare Configurations",
-    use_container_width=True,
-)
-
-st.sidebar.markdown("---")
-
-st.sidebar.info(
-    """
-Workflow
-
-1. Upload Baseline
-
-2. Upload Candidate
-
-3. Compare
-
-4. Review Risk
-
-5. Download Report
-"""
-)
-
-# -------------------------------------------------------
-# MAIN
-# -------------------------------------------------------
+# ==========================================================
+# MAIN APPLICATION
+# ==========================================================
 
 if run_button:
 
     if baseline_file is None or candidate_file is None:
 
-        st.error("Please upload both configuration files.")
+        st.warning(
+            "Please upload both configuration files."
+        )
 
         st.stop()
 
-    with st.spinner("Comparing configurations..."):
+    with st.spinner("Analyzing configurations..."):
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        # --------------------------------------------
+        # Save uploaded files temporarily
+        # --------------------------------------------
 
-            baseline_path = Path(temp_dir) / baseline_file.name
-            candidate_path = Path(temp_dir) / candidate_file.name
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".cfg",
+        ) as base_tmp:
 
-            baseline_path.write_bytes(
-                baseline_file.getvalue()
+            base_tmp.write(
+                baseline_file.getbuffer()
             )
 
-            candidate_path.write_bytes(
-                candidate_file.getvalue()
+            baseline_path = base_tmp.name
+
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".cfg",
+        ) as cand_tmp:
+
+            cand_tmp.write(
+                candidate_file.getbuffer()
             )
 
-            engine = ComparisonEngine()
+            candidate_path = cand_tmp.name
 
-            result = engine.compare(
-                str(baseline_path),
-                str(candidate_path),
-            )
+        # --------------------------------------------
+        # Run Comparison
+        # --------------------------------------------
 
-            report = ReportGenerator()
+        engine = ComparisonEngine()
 
-    st.success("Comparison completed successfully.")
-
-    # ---------------------------------------------------
-    # SUMMARY
-    # ---------------------------------------------------
-
-    st.header("Executive Summary")
-
-    c1, c2, c3, c4 = st.columns(4)
-
-    c1.metric(
-        "Total Changes",
-        result.statistics.total_changes,
-    )
-
-    c2.metric(
-        "Added",
-        result.statistics.added,
-    )
-
-    c3.metric(
-        "Modified",
-        result.statistics.modified,
-    )
-
-    c4.metric(
-        "Removed",
-        result.statistics.removed,
-    )
-
-    st.markdown("---")
-
-    # ---------------------------------------------------
-    # RISK
-    # ---------------------------------------------------
-
-    st.header("Risk Assessment")
-
-    high = result.statistics.high_risk
-    medium = result.statistics.medium_risk
-    low = result.statistics.low_risk
-
-    risk_score = (
-        sum(c.risk_weight for c in result.changes)
-        / len(result.changes)
-        if result.changes
-        else 0
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        st.metric(
-            "Average Risk Score",
-            f"{risk_score:.1f}/100",
+        result = engine.compare(
+            baseline_path,
+            candidate_path,
         )
 
-        st.progress(min(risk_score / 100, 1.0))
+    # =====================================================
+    # DASHBOARD
+    # =====================================================
 
-    with col2:
+    render_overview(result)
 
-        st.metric("High Risk", high)
+    # =====================================================
+    # TABS
+    # =====================================================
 
-        st.metric("Medium Risk", medium)
-
-        st.metric("Low Risk", low)
-
-    st.markdown("---")
-
-    # ---------------------------------------------------
-    # CATEGORY SUMMARY
-    # ---------------------------------------------------
-
-    st.header("Category Summary")
-
-    category_df = pd.DataFrame(
+    tabs = st.tabs(
         [
-            {
-                "Category": item.category.value,
-                "Changes": item.total_changes,
-                "High": item.high_risk,
-                "Medium": item.medium_risk,
-                "Low": item.low_risk,
-            }
-            for item in result.category_summary
+            "📋 Summary",
+            "⚠ Risk",
+            "📊 Categories",
+            "🔍 Changes",
+            "📑 Details",
+            "⬇ Reports",
         ]
     )
 
-    if not category_df.empty:
-        st.dataframe(
-            category_df,
-            use_container_width=True,
-            hide_index=True,
-        )
+    with tabs[0]:
+        render_summary(result)
 
-    st.markdown("---")
+    with tabs[1]:
+        render_risk(result)
 
-    # ---------------------------------------------------
-    # CHANGE DETAILS
-    # ---------------------------------------------------
+    with tabs[2]:
+        render_category(result)
 
-    st.header("Configuration Changes")
+    with tabs[3]:
+        render_changes(result)
 
-    rows = []
+    with tabs[4]:
+        render_details(result)
 
-    for change in result.changes:
-
-        rows.append(
-
-            {
-
-                "Type": change.change_type.value,
-
-                "Category": change.category.value,
-
-                "Section": change.section,
-
-                "Old Value": change.old_value,
-
-                "New Value": change.new_value,
-
-                "Risk": change.risk_level.value,
-
-                "Weight": change.risk_weight,
-
-                "Confidence": change.confidence_score,
-
-                "Recommendation": change.recommendation,
-
-            }
-
-        )
-
-    change_df = pd.DataFrame(rows)
-
-    st.dataframe(
-        change_df,
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    st.markdown("---")
-
-    # ---------------------------------------------------
-    # EXPANDABLE DETAILS
-    # ---------------------------------------------------
-
-    st.header("Detailed Analysis")
-
-    for index, change in enumerate(result.changes, start=1):
-
-        with st.expander(
-            f"{index}. {change.change_type.value} | "
-            f"{change.category.value} | "
-            f"{change.risk_level.value}"
-        ):
-
-            st.write("### Section")
-
-            st.code(change.section)
-
-            if change.old_value:
-
-                st.write("### Previous")
-
-                st.code(change.old_value)
-
-            if change.new_value:
-
-                st.write("### Updated")
-
-                st.code(change.new_value)
-
-            st.write("### Description")
-
-            st.write(change.description)
-
-            st.write("### Recommendation")
-
-            st.success(change.recommendation)
-
-            st.write("### Confidence")
-
-            st.progress(change.confidence_score / 100)
-
-    st.markdown("---")
-
-    # ---------------------------------------------------
-    # DOWNLOADS
-    # ---------------------------------------------------
-
-    st.header("Download Reports")
-
-    txt = report.generate_text_report(result)
-
-    md = report.generate_markdown_report(result)
-
-    html = report.generate_html_report(result)
-
-    json_report = report.generate_json_string(result)
-
-    d1, d2, d3, d4 = st.columns(4)
-
-    with d1:
-
-        st.download_button(
-            "Download TXT",
-            txt,
-            file_name="comparison_report.txt",
-        )
-
-    with d2:
-
-        st.download_button(
-            "Download Markdown",
-            md,
-            file_name="comparison_report.md",
-        )
-
-    with d3:
-
-        st.download_button(
-            "Download HTML",
-            html,
-            file_name="comparison_report.html",
-        )
-
-    with d4:
-
-        st.download_button(
-            "Download JSON",
-            json_report,
-            file_name="comparison_report.json",
-        )
+    with tabs[5]:
+        render_downloads(result)
 
 else:
 
     st.info(
-        "Upload a baseline and candidate configuration using the sidebar to begin the comparison."
-    )
-
-    st.markdown(
         """
-### Features
-
-- Configuration Difference Detection
-- Context-Aware Change Classification
-- Rule-Based Risk Assessment
-- Category-Wise Analysis
-- Confidence Score
-- Executive Summary
-- Multi-Format Report Generation
+Upload a Baseline Configuration and a Candidate
+Configuration from the sidebar and click
+**Compare Configurations** to begin.
 """
     )
 
-    st.markdown("---")
+# ==========================================================
+# FOOTER
+# ==========================================================
 
-    st.caption("ConfigVista AI © 2026")
+render_footer()

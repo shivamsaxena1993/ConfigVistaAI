@@ -117,6 +117,69 @@ class DiffEngine:
             candidate_parent.strip().lower()
         )
 
+    @staticmethod
+    def _same_command(old_line: str, new_line: str) -> bool:
+        """
+        Returns True when two configuration lines
+        represent the same IOS command with different
+        parameter values.
+        """
+
+        old_line = old_line.strip().lower()
+        new_line = new_line.strip().lower()
+
+        COMMAND_PREFIXES = [
+
+            "version",
+
+            "hostname",
+
+            "description",
+
+            "ip address",
+
+            "ip helper-address",
+
+            "logging buffered",
+
+            "logging host",
+
+            "ntp server",
+
+            "snmp-server community",
+
+            "service-policy input",
+
+            "service-policy output",
+
+            "router-id",
+
+            "network",
+
+            "passive-interface",
+
+            "duplex",
+
+            "speed",
+
+            "shutdown",
+
+            "no shutdown",
+
+        ]
+
+        for prefix in COMMAND_PREFIXES:
+
+            if (
+                old_line.startswith(prefix)
+                and
+                new_line.startswith(prefix)
+            ):
+                return True
+
+        return False
+    
+    
     # ------------------------------------------------------
 
     @staticmethod
@@ -164,6 +227,18 @@ class DiffEngine:
             candidate
         )
 
+        baseline=[
+        x
+        for x in baseline
+        if not x.strip().startswith("!")
+        ]
+        
+        candidate=[
+        x
+        for x in candidate
+        if not x.strip().startswith("!")
+        ]
+        
         baseline_sections = build_section_map(
             baseline
         )
@@ -202,7 +277,7 @@ class DiffEngine:
             if tag == "delete":
 
                 for index in range(i1, i2):
-
+                
                     parent = baseline_sections.get(
                         index + 1,
                         "",
@@ -256,33 +331,34 @@ class DiffEngine:
             # intended operation.
             # ==================================================
 
-            if tag == "replace":
+            # ==================================================
+            # REPLACE
+            # ==================================================
 
+            if tag == "replace":
+            
                 old_lines = baseline[i1:i2]
                 new_lines = candidate[j1:j2]
 
-                common = min(
-                    len(old_lines),
-                    len(new_lines),
-                )
+                common = min(len(old_lines), len(new_lines))
 
-                # ------------------------------------------
-                # 1. True modifications
-                # ------------------------------------------
+                #
+                # Compare matching positions
+                #
 
                 for offset in range(common):
-
+                
                     old_line = old_lines[offset]
                     new_line = new_lines[offset]
 
                     baseline_parent = baseline_sections.get(
                         i1 + offset + 1,
-                        "",
+                        ""
                     )
 
                     candidate_parent = candidate_sections.get(
                         j1 + offset + 1,
-                        "",
+                        ""
                     )
 
                     parent = (
@@ -291,109 +367,98 @@ class DiffEngine:
                         else baseline_parent
                     )
 
-                    # Parent commands that differ usually
-                    # indicate a removed section and a new
-                    # section rather than a modification.
+                    #
+                    # Ignore identical lines
+                    #
 
-                    if (
-                        self._is_parent_command(old_line)
-                        and
-                        self._is_parent_command(new_line)
-                        and
-                        not self._same_parent(
-                            baseline_parent,
-                            candidate_parent,
-                        )
-                    ):
+                    if old_line.strip() == new_line.strip():
+                        continue
+                    
+                    #
+                    # FIRST
+                    # Same command -> Modified
+                    #
 
+                    if self._same_command(old_line, new_line):
+                    
                         changes.append(
                             self._create_change(
-                                change_type=ChangeType.REMOVED,
+                                change_type=ChangeType.MODIFIED,
                                 line_number=i1 + offset + 1,
                                 old_value=old_line,
-                                parent=baseline_parent,
-                            )
-                        )
-
-                        changes.append(
-                            self._create_change(
-                                change_type=ChangeType.ADDED,
-                                line_number=j1 + offset + 1,
                                 new_value=new_line,
-                                parent=candidate_parent,
+                                parent=parent,
                             )
                         )
 
                         continue
-
-                    # Otherwise treat as modification.
+                    
+                    #
+                    # SECOND
+                    # Different commands
+                    #
 
                     changes.append(
                         self._create_change(
-                            change_type=ChangeType.MODIFIED,
+                            change_type=ChangeType.REMOVED,
                             line_number=i1 + offset + 1,
                             old_value=old_line,
+                            parent=baseline_parent,
+                        )
+                    )
+
+                    changes.append(
+                        self._create_change(
+                            change_type=ChangeType.ADDED,
+                            line_number=j1 + offset + 1,
                             new_value=new_line,
+                            parent=candidate_parent,
+                        )
+                    )
+
+                #
+                # Remaining old lines
+                #
+
+                for offset in range(common, len(old_lines)):
+                
+                    parent = baseline_sections.get(
+                        i1 + offset + 1,
+                        ""
+                    )
+
+                    changes.append(
+                        self._create_change(
+                            change_type=ChangeType.REMOVED,
+                            line_number=i1 + offset + 1,
+                            old_value=old_lines[offset],
                             parent=parent,
                         )
                     )
 
-                # ------------------------------------------
-                # 2. Remaining baseline lines
                 #
-                # Removed
-                # ------------------------------------------
-
-                if len(old_lines) > common:
-
-                    for offset in range(
-                        common,
-                        len(old_lines),
-                    ):
-
-                        parent = baseline_sections.get(
-                            i1 + offset + 1,
-                            "",
-                        )
-
-                        changes.append(
-                            self._create_change(
-                                change_type=ChangeType.REMOVED,
-                                line_number=i1 + offset + 1,
-                                old_value=old_lines[offset],
-                                parent=parent,
-                            )
-                        )
-
-                # ------------------------------------------
-                # 3. Remaining candidate lines
+                # Remaining new lines
                 #
-                # Added
-                # ------------------------------------------
 
-                if len(new_lines) > common:
+                for offset in range(common, len(new_lines)):
+                
+                    parent = candidate_sections.get(
+                        j1 + offset + 1,
+                        ""
+                    )
 
-                    for offset in range(
-                        common,
-                        len(new_lines),
-                    ):
-
-                        parent = candidate_sections.get(
-                            j1 + offset + 1,
-                            "",
+                    changes.append(
+                        self._create_change(
+                            change_type=ChangeType.ADDED,
+                            line_number=j1 + offset + 1,
+                            new_value=new_lines[offset],
+                            parent=parent,
                         )
+                    )
 
-                        changes.append(
-                            self._create_change(
-                                change_type=ChangeType.ADDED,
-                                line_number=j1 + offset + 1,
-                                new_value=new_lines[offset],
-                                parent=parent,
-                            )
-                        )
-
+                continue
+        
         return changes
-    
     # ======================================================
     # FILE COMPARISON
     # ======================================================

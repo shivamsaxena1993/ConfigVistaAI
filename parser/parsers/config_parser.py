@@ -71,11 +71,12 @@ class ConfigParser:
     Returns one unified dictionary.
     """
 
-    PARSER_VERSION = "2.0"
+    PARSER_VERSION = "3.0"
 
     def __init__(self, config: str):
 
         self.config = config
+        self.parsed_objects = {}
 
         self.lines = [
             line.rstrip()
@@ -229,6 +230,9 @@ class ConfigParser:
 
                     self.results["interfaces"] = result
 
+                    # Semantic engine consumes these directly
+                    self.parsed_objects["interfaces"] = result
+
                     self.results["physical_interfaces"] = [
                         i
                         for i in result
@@ -254,8 +258,10 @@ class ConfigParser:
                     ]
 
                 else:
-
+                    
+                    self.parsed_objects[parser_name] = result
                     self._merge_result(result)
+                    
 
             except Exception as exc:
 
@@ -380,6 +386,8 @@ class ConfigParser:
 
             "version": self.PARSER_VERSION,
 
+            "semantic_ready": True,
+
             "execution_time":
                 self.statistics["execution_time"],
 
@@ -404,69 +412,66 @@ class ConfigParser:
 
         return self.results
     
-        # =======================================================
-        # Validation
-        # =======================================================
+    # =======================================================
+    # Validation
+    # =======================================================
+    def validate(self):
+        """
+        Perform basic validation of parsed results.
+        Returns a list of warnings.
+        """
+        warnings = []
+        if not self.results.get("hostname"):
+            warnings.append("Hostname not detected.")
+        if self.results.get("interface_count", 0) == 0:
+            warnings.append("No interfaces detected.")
+        if not self.results.get("routing_protocols"):
+            warnings.append("No routing protocol detected.")
+        self.statistics["warnings"] = warnings
+        return warnings
     
-        def validate(self):
-            """
-            Perform basic validation of parsed results.
-            Returns a list of warnings.
-            """
-    
-            warnings = []
-    
-            if not self.results.get("hostname"):
-                warnings.append("Hostname not detected.")
-    
-            if self.results.get("interface_count", 0) == 0:
-                warnings.append("No interfaces detected.")
-    
-            if not self.results.get("routing_protocols"):
-                warnings.append("No routing protocol detected.")
-    
-            self.statistics["warnings"] = warnings
-    
-            return warnings
-    
-        # =======================================================
-        # Summary
-        # =======================================================
-    
-        def summary(self):
-            """
-            Return a lightweight parser summary.
-            """
-    
-            return {
-            
-                "hostname":
-                    self.results.get("hostname"),
-    
-                "device_role":
-                    self.results.get("device_role"),
-    
-                "interfaces":
-                    self.results.get("interface_count"),
-    
-                "vlans":
-                    self.results.get("vlan_count"),
-    
-                "routing_protocols":
-                    self.results.get("routing_protocols"),
-    
-                "bgp_neighbors":
-                    self.results.get("bgp_neighbor_count"),
-    
-                "ospf_processes":
-                    self.results.get("ospf_process_count"),
-    
-                "acl_count":
-                    self.results.get("acl_count"),
-    
-                "parser_metadata":
-                    self.results.get("parser_metadata"),
-            }
+    # =======================================================
+    # Parsed Objects
+    # =======================================================
+
+    def get_parsed_objects(self):
+        """
+        Return parser outputs for semantic comparison.
+
+        Returns
+        -------
+        Dict[str, Any]
+        """
+
+        return self.parsed_objects
+
+    # =======================================================
+    # Summary
+    # =======================================================
+    def summary(self):
+        """
+        Return a lightweight parser summary.
+        """
+        return {
+            "hostname":
+                self.results.get("hostname"),
+            "device_role":
+                self.results.get("device_role"),
+            "interfaces":
+                self.results.get("interface_count"),
+            "vlans":
+                self.results.get("vlan_count"),
+            "routing_protocols":
+                self.results.get("routing_protocols"),
+            "bgp_neighbors":
+                self.results.get("bgp_neighbor_count"),
+            "ospf_processes":
+                self.results.get("ospf_process_count"),
+            "acl_count":
+                self.results.get("acl_count"),
+            "parser_metadata":
+                self.results.get("parser_metadata"),
+        }
 
 
 # ============================================================

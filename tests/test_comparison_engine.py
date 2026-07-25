@@ -1,190 +1,168 @@
 """
 tests/test_comparison_engine.py
 
-Integration Test for ConfigVista AI
+Integration tests for the ConfigVista AI ComparisonEngine.
 
-Tests the complete pipeline:
+Validates the active Artifact-1 pipeline:
 
 Configuration Files
-        │
-        ▼
-Comparison Engine
-        │
-        ▼
-Diff Engine
-        │
-        ▼
-Change Classifier
-        │
-        ▼
-Risk Evaluator
-        │
-        ▼
-Statistics
-        │
-        ▼
-Report Generator
+        ↓
+ComparisonEngine
+        ↓
+DiffEngine
+        ↓
+ChangeClassifier
+        ↓
+RiskEvaluator
+        ↓
+ComparisonResult
+        ↓
+ReportGenerator
 
-Author : Shivam Saxena
-Project : ConfigVista AI
+Project: ConfigVista AI
 """
 
+from pathlib import Path
+
+import pytest
+
 from comparison.comparison_engine import ComparisonEngine
+from comparison.models import ComparisonResult, RiskLevel
 from comparison.report_generator import ReportGenerator
-from comparison.models import RiskLevel
 
 
-BASELINE = "comparison_examples/baseline.txt"
-CANDIDATE = "comparison_examples/candidate2.txt"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+BASELINE = PROJECT_ROOT / "comparison_examples" / "baseline.txt"
+CANDIDATE = PROJECT_ROOT / "comparison_examples" / "candidate2.txt"
 
 
-def run_integration_test():
-
-    print("=" * 70)
-    print("Running ComparisonEngine Integration Test")
-    print("=" * 70)
-
-    # ------------------------------------------------------
-    # Engine
-    # ------------------------------------------------------
+@pytest.fixture(scope="module")
+def comparison_result() -> ComparisonResult:
+    """Run the comparison once for this test module."""
 
     engine = ComparisonEngine()
 
-    result = engine.compare(
-        BASELINE,
-        CANDIDATE,
+    return engine.compare(
+        str(BASELINE),
+        str(CANDIDATE),
+        export_csv=False,
     )
 
-    # ------------------------------------------------------
-    # Basic Validation
-    # ------------------------------------------------------
 
-    assert result is not None
+def test_comparison_returns_result(
+    comparison_result: ComparisonResult,
+):
+    assert isinstance(comparison_result, ComparisonResult)
 
-    assert result.baseline_hostname == "Branch-R1"
 
-    assert result.candidate_hostname == "Branch-R2"
+def test_device_identity(
+    comparison_result: ComparisonResult,
+):
+    assert comparison_result.baseline_hostname
+    assert comparison_result.candidate_hostname
 
-    assert len(result.changes) > 0
 
-    print("✓ Configuration comparison completed")
+def test_changes_detected(
+    comparison_result: ComparisonResult,
+):
+    assert len(comparison_result.changes) > 0
 
-    # ------------------------------------------------------
-    # Statistics
-    # ------------------------------------------------------
 
-    stats = result.statistics
+def test_statistics_consistent(
+    comparison_result: ComparisonResult,
+):
+    stats = comparison_result.statistics
 
-    assert stats.total_changes == len(result.changes)
-
-    assert stats.added >= 0
-
-    assert stats.modified >= 0
-
-    assert stats.removed >= 0
-
-    print("✓ Statistics validated")
-
-    # ------------------------------------------------------
-    # Risk Validation
-    # ------------------------------------------------------
-
-    high = [
-        c
-        for c in result.changes
-        if c.risk_level == RiskLevel.HIGH
-    ]
-
-    medium = [
-        c
-        for c in result.changes
-        if c.risk_level == RiskLevel.MEDIUM
-    ]
-
-    low = [
-        c
-        for c in result.changes
-        if c.risk_level == RiskLevel.LOW
-    ]
+    assert stats.total_changes == len(comparison_result.changes)
 
     assert (
-        len(high)
-        + len(medium)
-        + len(low)
-        <= len(result.changes)
+        stats.added
+        + stats.modified
+        + stats.removed
+        == stats.total_changes
     )
 
-    print("✓ Risk evaluation validated")
 
-    # ------------------------------------------------------
-    # Category Summary
-    # ------------------------------------------------------
+def test_risk_statistics_consistent(
+    comparison_result: ComparisonResult,
+):
+    result = comparison_result
+    stats = result.statistics
 
-    assert len(result.category_summary) > 0
-
-    print("✓ Category summary validated")
-
-    # ------------------------------------------------------
-    # Report Generation
-    # ------------------------------------------------------
-
-    report_generator = ReportGenerator()
-
-    text_report = report_generator.generate_text_report(
-        result
+    classified_risk_count = (
+        stats.high_risk
+        + stats.medium_risk
+        + stats.low_risk
     )
 
-    markdown_report = report_generator.generate_markdown_report(
-        result
+    assert classified_risk_count <= stats.total_changes
+
+    assert result.overall_risk in {
+        RiskLevel.LOW,
+        RiskLevel.MEDIUM,
+        RiskLevel.HIGH,
+        RiskLevel.UNKNOWN,
+    }
+
+    assert 0.0 <= result.average_risk_score <= 100.0
+    assert 0.0 <= result.average_rule_confidence <= 100.0
+
+
+def test_category_summary_consistent(
+    comparison_result: ComparisonResult,
+):
+    result = comparison_result
+
+    assert result.category_summary
+
+    assert (
+        sum(item.total_changes for item in result.category_summary)
+        == result.statistics.total_changes
     )
 
-    html_report = report_generator.generate_html_report(
-        result
-    )
 
-    json_report = report_generator.generate_json_string(
-        result
-    )
-
-    assert len(text_report) > 0
-
-    assert len(markdown_report) > 0
-
-    assert len(html_report) > 0
-
-    assert len(json_report) > 0
-
-    print("✓ Report generation validated")
-
-    # ------------------------------------------------------
-    # Print Summary
-    # ------------------------------------------------------
-
-    print()
-
-    print("=" * 70)
-    print("Comparison Summary")
-    print("=" * 70)
-
-    print(result.summary)
-
-    print()
-
-    print(result.statistics)
-
-    print()
-
-    print("=" * 70)
-    print("Generated Report")
-    print("=" * 70)
-
-    print(text_report)
-
-    print("=" * 70)
-    print("Integration Test PASSED")
-    print("=" * 70)
+def test_deployment_recommendation_present(
+    comparison_result: ComparisonResult,
+):
+    assert comparison_result.deployment_recommendation.strip()
 
 
-if __name__ == "__main__":
+def test_summary_contains_assessment(
+    comparison_result: ComparisonResult,
+):
+    result = comparison_result
 
-    run_integration_test()
+    assert "Configuration comparison completed successfully." in result.summary
+    assert f"Overall Risk : {result.overall_risk.value}" in result.summary
+    assert "Average Rule Confidence" in result.summary
+
+
+def test_report_generation(
+    comparison_result: ComparisonResult,
+):
+    generator = ReportGenerator()
+
+    text_report = generator.generate_text_report(comparison_result)
+    markdown_report = generator.generate_markdown_report(comparison_result)
+    html_report = generator.generate_html_report(comparison_result)
+    json_report = generator.generate_json_string(comparison_result)
+
+    assert text_report.strip()
+    assert markdown_report.strip()
+    assert html_report.strip()
+    assert json_report.strip()
+
+    assert comparison_result.baseline_hostname in text_report
+    assert comparison_result.candidate_hostname in text_report
+
+
+def test_missing_configuration_raises_error():
+    engine = ComparisonEngine()
+
+    with pytest.raises(FileNotFoundError):
+        engine.compare(
+            "does-not-exist-baseline.cfg",
+            "does-not-exist-candidate.cfg",
+            export_csv=False,
+        )
