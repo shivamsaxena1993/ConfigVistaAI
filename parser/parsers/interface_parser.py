@@ -244,7 +244,11 @@ class InterfaceParser:
 
     def _create_interface(self, block):
 
-        name = block[0].split(None, 1)[1]
+        raw_name = block[0].split(None, 1)[1]
+    
+        name = self._normalize_interface_name(
+            raw_name
+        )
 
         return {
 
@@ -527,16 +531,21 @@ class InterfaceParser:
         if not name:
             return name
 
+        name = name.strip()
+
+        # Already canonical: preserve it unchanged.
+        for full in self.INTERFACE_PREFIXES.values():
+
+            if name.startswith(full):
+                return name
+
+        # Expand supported Cisco abbreviations.
         for short, full in self.INTERFACE_PREFIXES.items():
 
             if name.startswith(short):
+                return full + name[len(short):]
 
-                remainder = name[len(short):]
-
-                if not remainder.startswith(full):
-
-                    return full + remainder
-
+        # Unknown interface types remain unchanged.
         return name
 
     def _normalize_identifier(self, value):
