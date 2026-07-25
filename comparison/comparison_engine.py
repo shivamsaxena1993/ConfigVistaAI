@@ -9,6 +9,11 @@ Project : ConfigVista AI
 
 from __future__ import annotations
 
+from parser.parsers.interface_parser import InterfaceParser
+from comparison.csv_exporter import CSVExporter
+
+
+
 import time
 from pathlib import Path
 from typing import List
@@ -16,6 +21,7 @@ from typing import List
 from comparison.diff_engine import DiffEngine
 from comparison.change_classifier import ChangeClassifier
 from comparison.risk_evaluator import RiskEvaluator
+
 
 from comparison.models import (
     ComparisonResult,
@@ -38,26 +44,33 @@ class ComparisonEngine:
         Read Configuration
                 │
                 ▼
-        Diff Engine
+        Interface Parser
                 │
                 ▼
-        Change Classifier
+            Diff Engine
                 │
                 ▼
-        Risk Evaluator
+            Classifier
                 │
                 ▼
-        Statistics
+            Risk Evaluator
                 │
                 ▼
-        Result
-    """
+            Statistics
+                │
+                ▼
+              Result
+            """
 
     def __init__(self):
 
         self.diff_engine = DiffEngine()
         self.classifier = ChangeClassifier()
         self.risk_evaluator = RiskEvaluator()
+    
+
+        # Phase 3
+        self.csv_exporter = CSVExporter()
 
     # ==========================================================
 
@@ -65,6 +78,8 @@ class ComparisonEngine:
         self,
         baseline_file: str,
         candidate_file: str,
+        export_csv: bool = False,
+        csv_output_file: str = "ml/data/raw/comparison_results.csv",
     ) -> ComparisonResult:
         """
         Compare two configuration files.
@@ -75,11 +90,21 @@ class ComparisonEngine:
         baseline = read_configuration(baseline_file)
         candidate = read_configuration(candidate_file)
 
-        return self.compare_from_text(
+
+        result = self.compare_from_text(
             baseline,
             candidate,
             start_time=start_time,
         )
+
+        if export_csv:
+            self.csv_exporter.export(
+                result=result,
+                output_file=csv_output_file,
+                append=True,
+            )
+
+        return result
 
     # ==========================================================
 
@@ -110,6 +135,50 @@ class ComparisonEngine:
             candidate_lines
         )
 
+        # --------------------------------------
+        # Step 0 – Parse Configuration
+        # --------------------------------------
+
+        baseline_parser = InterfaceParser(
+            baseline_lines
+        )
+
+        candidate_parser = InterfaceParser(
+            candidate_lines
+        )   
+
+        baseline_interfaces = baseline_parser.parse()
+
+        candidate_interfaces = candidate_parser.parse()
+
+        result.baseline_interfaces = baseline_interfaces
+
+        result.candidate_interfaces = candidate_interfaces
+
+        result.baseline_statistics = (
+            baseline_parser.statistics
+        )
+
+        result.candidate_statistics = (
+            candidate_parser.statistics
+        )
+
+        result.baseline_validation = (
+            baseline_parser.statistics.get(
+                "validation_results",
+                []
+            )
+        )
+
+        result.candidate_validation = (
+            candidate_parser.statistics.get(
+                "validation_results",
+                []
+            )
+        )
+
+        
+
         # ------------------------------------------------------
         # Step 1 - Detect Differences
         # ------------------------------------------------------
@@ -133,6 +202,22 @@ class ComparisonEngine:
 
         result.changes = changes
 
+        result.overall_risk = self.risk_evaluator.overall_risk(
+            changes
+        )
+
+        result.average_risk_score = self.risk_evaluator.risk_score(
+            changes
+        )
+
+        result.average_rule_confidence = (
+            self.risk_evaluator.average_rule_confidence(changes)
+        )
+
+        result.deployment_recommendation = (
+            self.risk_evaluator.deployment_recommendation(changes)
+        )
+
         # ------------------------------------------------------
         # Step 4 - Statistics
         # ------------------------------------------------------
@@ -142,7 +227,7 @@ class ComparisonEngine:
         build_category_summary(result)
 
         # ------------------------------------------------------
-        # Summary
+        # Step 5 - Generate Summary
         # ------------------------------------------------------
 
         result.summary = self._generate_summary(result)
@@ -196,6 +281,7 @@ class ComparisonEngine:
                     self.compare(
                         str(baseline_file),
                         str(candidate_file),
+                        export_csv=False,
                     )
                 )
 
@@ -213,28 +299,17 @@ class ComparisonEngine:
 
         stats = result.statistics
 
-        overall_risk = self.risk_evaluator.overall_risk(
-            result.changes
-        )
-
-        average_risk = self.risk_evaluator.risk_score(
-            result.changes
-        )
 
         lines = [
-
-            f"{stats.total_changes} configuration change(s) detected.",
-
-            f"Overall Risk : {overall_risk.value}",
-
-            f"Average Risk Score : {average_risk}/100",
-
-            f"Added : {stats.added}",
-
-            f"Removed : {stats.removed}",
-
-            f"Modified : {stats.modified}",
-
+            "Configuration comparison completed successfully.",
+            f"Baseline Device : {result.baseline_hostname}",
+            f"Candidate Device : {result.candidate_hostname}",
+            f"Interfaces Parsed : {len(result.candidate_interfaces)}",
+            f"Configuration Changes : {stats.total_changes}",
+            f"Overall Risk : {result.overall_risk.value}",
+            f"Average Risk Score : {result.average_risk_score}/100",
+            f"Average Rule Confidence : {result.average_rule_confidence}%",
+            f"Recommendation : {result.deployment_recommendation}",
         ]
 
         return "\n".join(lines)

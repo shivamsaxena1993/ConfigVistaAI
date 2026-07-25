@@ -37,7 +37,7 @@ class HistoryService:
 
         )
 
-    def get_assessment(self, change_id):
+    def get_change(self, change_id):
 
         return (
 

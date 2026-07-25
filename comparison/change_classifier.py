@@ -43,6 +43,15 @@ class ChangeClassifier:
                 r"^speed\b",
                 r"^duplex\b",
                 r"^mtu\b",
+                r"^service-policy\b",
+                r"^ip helper-address\b",
+                r"^vrf forwarding\b",
+                r"^negotiation\b",
+                r"^tunnel\b",
+                r"^crypto map\b",
+                r"^zone-member\b",
+                r"^encapsulation\b",
+                r"^keepalive\b",
             ],
 
             ChangeCategory.ROUTING: [
@@ -58,6 +67,11 @@ class ChangeClassifier:
                 r"^ospf\b",
                 r"^bgp\b",
                 r"^eigrp\b",
+                r"^track\b",
+                r"^ip sla\b",
+                r"^bfd\b",
+                r"^mpls\b",
+                r"^segment-routing\b",
             ],
 
             ChangeCategory.SWITCHING: [
@@ -80,6 +94,12 @@ class ChangeClassifier:
                 r"^line vty\b",
                 r"^snmp-server\b",
                 r"^ssh\b",
+                r"^class-map\b",
+                r"^policy-map\b",
+                r"^object-group\b",
+                r"^zone\b",
+                r"^inspect\b",
+                r"^match\b",
             ],
 
             ChangeCategory.SERVICES: [
@@ -89,6 +109,9 @@ class ChangeClassifier:
                 r"^ip domain\b",
                 r"^dns\b",
                 r"^call-home\b",
+                r"^ip http\b",
+                r"^radius-server\b",
+                r"^tacacs\b",
             ],
 
             ChangeCategory.MANAGEMENT: [
@@ -97,6 +120,11 @@ class ChangeClassifier:
                 r"^vrf\b",
                 r"^management\b",
                 r"^ip ssh\b",
+                r"^archive\b",
+                r"^clock\b",
+                r"^scheduler\b",
+                r"^parser\b",
+                r"^alias\b",
             ],
 
             ChangeCategory.SYSTEM: [

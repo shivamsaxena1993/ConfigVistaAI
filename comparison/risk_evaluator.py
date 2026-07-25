@@ -204,7 +204,53 @@ class RiskEvaluator:
         return change
 
     # ======================================================
+    def average_rule_confidence(
+        self,
+        changes: List[ConfigurationChange],
+    ) -> float:
+        """
+        Calculate average deterministic rule confidence (0-100).
+        """
 
+        if not changes:
+            return 0.0
+
+        return round(
+            sum(c.confidence_score for c in changes) / len(changes),
+            2,
+        )
+    
+
+    def deployment_recommendation(
+        self,
+        changes: List[ConfigurationChange],
+    ) -> str:
+        """
+        Generate aggregate deployment guidance from rule-based risk.
+        """
+
+        overall = self.overall_risk(changes)
+
+        if overall == RiskLevel.HIGH:
+            return (
+                "Do not deploy without technical validation, "
+                "an approved maintenance window, and a rollback plan."
+            )
+
+        if overall == RiskLevel.MEDIUM:
+            return (
+                "Deploy with caution and perform targeted "
+                "validation during implementation."
+            )
+
+        if overall == RiskLevel.LOW:
+            return (
+                "Proceed using the standard change process "
+                "with normal post-change validation."
+            )
+
+        return "Manual review recommended before deployment."
+    
     def overall_risk(
         self,
         changes: List[ConfigurationChange],

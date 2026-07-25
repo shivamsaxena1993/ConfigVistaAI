@@ -17,10 +17,12 @@ tools/feature_validation_summary.txt
 ====================================================================
 """
 
+import sys
 import csv
 import json
 import sys
 from pathlib import Path
+
 
 # ------------------------------------------------------------
 # Add project root to Python path
@@ -73,6 +75,8 @@ for cfg in config_files:
     parser = ConfigParser(config)
 
     data = parser.parse()
+
+    results.append(data)
 
     result = {
 
@@ -179,6 +183,8 @@ with open(csv_file, "w", newline="", encoding="utf-8") as f:
 
     writer.writerows(results)
 
+
+
 # ------------------------------------------------------------
 # JSON Report
 # ------------------------------------------------------------
@@ -191,6 +197,7 @@ with open(json_file, "w", encoding="utf-8") as f:
         results,
         f,
         indent=4,
+        default=str
     )
 
 # ------------------------------------------------------------

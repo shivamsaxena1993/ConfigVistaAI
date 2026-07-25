@@ -35,31 +35,9 @@ class ReportGenerator:
 
         stats = result.statistics
 
-        overall_risk = "Unknown"
+        overall_risk = result.overall_risk.value
 
-        if result.changes:
-
-            priority = {
-                "Unknown": 0,
-                "Low": 1,
-                "Medium": 2,
-                "High": 3,
-            }
-
-            overall_risk = max(
-                (c.risk_level.value for c in result.changes),
-                key=lambda x: priority.get(x, 0),
-            )
-
-            avg_score = round(
-                sum(c.risk_weight for c in result.changes)
-                / len(result.changes),
-                2,
-            )
-
-        else:
-
-            avg_score = 0
+        avg_score = result.average_risk_score
 
         lines = []
 
@@ -88,7 +66,12 @@ class ReportGenerator:
         lines.append(f"High Risk     : {stats.high_risk}")
         lines.append(f"Medium Risk   : {stats.medium_risk}")
         lines.append(f"Low Risk      : {stats.low_risk}")
-
+        lines.append(
+            f"Rule Confidence : {result.average_rule_confidence}%"
+        )
+        lines.append(
+            f"Recommendation  : {result.deployment_recommendation}"
+        )
         lines.append("")
         lines.append("CATEGORY SUMMARY")
         lines.append("-" * 70)
@@ -165,7 +148,7 @@ class ReportGenerator:
         )
 
         block.append(
-            f"   Confidence    : {change.confidence_score}%"
+            f"  Rule Confidence    : {change.confidence_score}%"
         )
 
         if change.description:
@@ -177,7 +160,7 @@ class ReportGenerator:
         if change.recommendation:
 
             block.append(
-                f"   Recommendation: {change.recommendation}"
+                f"   Deployment Recommendation: {change.recommendation}"
             )
 
         block.append("")
@@ -227,7 +210,7 @@ class ReportGenerator:
             md.append(f"- Category: {c.category.value}")
             md.append(f"- Section: {c.section}")
             md.append(f"- Risk: {c.risk_level.value}")
-            md.append(f"- Confidence: {c.confidence_score}%")
+            md.append(f"- Rule Confidence: {c.confidence_score}%")
 
             if c.old_value:
                 md.append(f"- Old: `{c.old_value}`")
@@ -280,7 +263,7 @@ class ReportGenerator:
             "<th>Category</th>"
             "<th>Section</th>"
             "<th>Risk</th>"
-            "<th>Confidence</th>"
+            "<th>Rule Confidence</th>"
             "</tr>"
         )
 

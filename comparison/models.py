@@ -81,7 +81,7 @@ class ConfigurationChange:
     risk_level: RiskLevel = RiskLevel.UNKNOWN
     risk_weight: int = 0
 
-    # Future ML support
+    # Deterministic rule confidence (Artifact-1)
     confidence_score: float = 0.0
 
     # User readable information
@@ -136,6 +136,42 @@ class ComparisonResult:
     baseline_hostname: str = ""
     candidate_hostname: str = ""
 
+    # -------------------------------------------------
+    # Parsed Interface Objects
+    # -------------------------------------------------
+
+    baseline_interfaces: List[dict] = field(
+        default_factory=list
+    )
+
+    candidate_interfaces: List[dict] = field(
+        default_factory=list
+    )
+
+    # -------------------------------------------------
+    # Parser Statistics
+    # -------------------------------------------------
+
+    baseline_statistics: dict = field(
+        default_factory=dict
+    )
+
+    candidate_statistics: dict = field(
+        default_factory=dict
+    )
+
+    # -------------------------------------------------
+    # Validation
+    # -------------------------------------------------
+    
+    baseline_validation: List = field(
+        default_factory=list
+    )
+    
+    candidate_validation: List = field(
+        default_factory=list
+    )
+
     changes: List[ConfigurationChange] = field(default_factory=list)
 
     statistics: ComparisonStatistics = field(
@@ -146,8 +182,14 @@ class ComparisonResult:
         default_factory=list
     )
 
-    summary: str = ""
+    # Rule-based aggregate assessment
+    overall_risk: RiskLevel = RiskLevel.UNKNOWN
+    average_risk_score: float = 0.0
+    average_rule_confidence: float = 0.0
+    deployment_recommendation: str = ""
 
+    summary: str = ""
+    device_role: str = "Unknown"
     comparison_time_ms: float = 0.0
 
     comparison_version: str = "2.1"
@@ -221,8 +263,21 @@ def build_category_summary(result: ComparisonResult) -> None:
         elif change.risk_level == RiskLevel.LOW:
             item.low_risk += 1
 
-    result.category_summary = sorted(
-        summary.values(),
-        key=lambda x: x.total_changes,
-        reverse=True,
+    preferred=[
+    ChangeCategory.INTERFACE,
+    ChangeCategory.ROUTING,
+    ChangeCategory.SECURITY,
+    ChangeCategory.MANAGEMENT,
+    ChangeCategory.SERVICES,
+    ChangeCategory.SYSTEM,
+    ChangeCategory.SWITCHING,
+    ChangeCategory.UNKNOWN
+    ]
+
+    result.category_summary=sorted(
+    summary.values(),
+    key=lambda x:
+    preferred.index(
+    x.category
+    )
     )
