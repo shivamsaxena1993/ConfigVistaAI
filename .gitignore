@@ -124,3 +124,23 @@ htmlcov/
 # ==========================================================
 project_context_dump.txt
 project_details.txt
+
+# =====================================================
+# Generated datasets
+# =====================================================
+
+datasets/generated/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# Pytest cache
+.pytest_cache/
+
+# Coverage
+.coverage
+htmlcov/
