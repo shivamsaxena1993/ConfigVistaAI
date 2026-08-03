@@ -144,3 +144,45 @@ venv/
 # Coverage
 .coverage
 htmlcov/
+
+# Trained ML artifacts
+ml/trained_models/*.pkl
+!ml/trained_models/.gitkeep
+
+# ==========================================
+# Generated datasets
+# ==========================================
+
+datasets/generated/*.csv
+datasets/generated/*.json
+datasets/generated/*.txt
+
+# Keep folder
+!datasets/generated/.gitkeep
+
+
+# ==========================================
+# ML trained models
+# ==========================================
+
+ml/trained_models/*.pkl
+!ml/trained_models/.gitkeep
+
+
+# ==========================================
+# ML reports
+# ==========================================
+
+ml/reports/*.csv
+ml/reports/*.json
+ml/reports/*.png
+ml/reports/*.txt
+!ml/reports/.gitkeep
+
+
+# ==========================================
+# Python cache
+# ==========================================
+
+**/__pycache__/
+*.pyc
