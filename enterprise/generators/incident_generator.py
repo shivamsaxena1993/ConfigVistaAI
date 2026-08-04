@@ -178,31 +178,77 @@ class IncidentGenerator:
 
                 continue
 
-            incident = self._create_incident(
+            count = self._incident_count(
 
-                incident_index,
-
-                change,
-
-                sites,
-
-                devices,
-
-                business_services,
+                change
 
             )
 
-            self.generated_incidents.append(
+            for occurrence in range(count):
 
-                incident
+                incident = self._create_incident(
+                
+                    incident_index,
 
-            )
+                    occurrence,
 
-            incident_index += 1
+                    change,
+
+                    sites,
+
+                    devices,
+
+                    business_services,
+
+                )
+
+                self.generated_incidents.append(
+
+                    incident
+
+                )
+
+                incident_index += 1
 
         return self.generated_incidents
     
-        # --------------------------------------------------------
+    # ========================================================
+    # Incident Generation
+    # ========================================================
+
+    def _incident_count(
+
+        self,
+
+        change: HistoricalChange,
+
+    ) -> int:
+        """
+        Determine how many incidents
+        are created from an eligible change.
+        """
+
+        count = 1
+
+        if change.predicted_risk.lower() == "high":
+
+            count += 1
+
+        if change.change_scope == "Global":
+
+            count += 1
+
+        elif change.change_scope == "Regional":
+
+            count += 1
+
+        if change.business_impact == "High":
+
+            count += 1
+
+        return min(count, 3)
+
+    # --------------------------------------------------------
     # Internal Helpers
     # --------------------------------------------------------
 
@@ -215,7 +261,7 @@ class IncidentGenerator:
     ) -> bool:
         """
         Determine whether a historical
-        change generates an incident.
+        change generates one or more incidents.
 
         Rules
 
@@ -229,17 +275,19 @@ class IncidentGenerator:
             -> Every 50th
         """
 
-        if change.actual_outcome == "Failed":
+        if change.actual_outcome.lower() == "failed":
 
             return True
 
         number = int(
+
             change.change_number.split("-")[-1]
+
         )
 
         if (
 
-            change.predicted_risk == "High"
+            change.predicted_risk.lower() == "high"
 
             and number % 20 == 0
 
@@ -249,7 +297,7 @@ class IncidentGenerator:
 
         if (
 
-            change.predicted_risk == "Medium"
+            change.predicted_risk.lower() == "medium"
 
             and number % 50 == 0
 
@@ -258,8 +306,66 @@ class IncidentGenerator:
             return True
 
         return False
-
-
+    
+    # ========================================================
+    # Incident Profiles
+    # ========================================================
+    
+    def _incident_profile(
+    
+        self,
+    
+        occurrence: int,
+    
+    ) -> dict:
+        """
+        Return a deterministic incident profile.
+        """
+    
+        profiles = [
+        
+            {
+            
+                "category": "Interface",
+    
+                "summary": "Interface instability detected",
+    
+                "assignment_group": "Network Operations",
+    
+                "root_cause": "Interface configuration mismatch",
+    
+            },
+    
+            {
+            
+                "category": "Routing",
+    
+                "summary": "Routing adjacency lost",
+    
+                "assignment_group": "Routing Engineering",
+    
+                "root_cause": "Routing protocol convergence failure",
+    
+            },
+    
+            {
+            
+                "category": "Application",
+    
+                "summary": "Application reachability degraded",
+    
+                "assignment_group": "Application Support",
+    
+                "root_cause": "Traffic forwarding disruption",
+    
+            },
+    
+        ]
+    
+        return profiles[
+            occurrence % len(profiles)
+        ]
+    
     # --------------------------------------------------------
 
     def _create_incident(
@@ -267,6 +373,8 @@ class IncidentGenerator:
         self,
 
         incident_index: int,
+
+        occurrence: int,
 
         change: HistoricalChange,
 
@@ -324,31 +432,12 @@ class IncidentGenerator:
 
         )
 
-        service = next(
-
-            (
-
-                service
-
-                for service
-
-                in business_services
-
-                if service.service_id
-                == change.business_service_id
-
-            ),
-
-            None,
-
-        )
-
         #
-        # Title
+        # Incident Profile
         #
 
         hostname = (
-
+        
             primary_device.hostname
 
             if primary_device
@@ -358,7 +447,7 @@ class IncidentGenerator:
         )
 
         site_name = (
-
+        
             site.site_name
 
             if site
@@ -367,13 +456,19 @@ class IncidentGenerator:
 
         )
 
+        number = int(
+            change.change_number.split("-")[-1]
+        )
+
+        profile = self._incident_profile(
+            number + occurrence
+        )
+
         title = (
+        
+            f"{profile['summary']} "
 
-            f"{change.change_type} "
-
-            f"deployment issue on "
-
-            f"{hostname} "
+            f"on {hostname} "
 
             f"({site_name})"
 
@@ -384,30 +479,60 @@ class IncidentGenerator:
         #
 
         severity = self._severity(
-            change
+
+            change,
+
         )
 
-        assignment_group = (
-
-            self._assignment_group(
-                change
-            )
+        assignment_group = self._assignment_group(
+            change,
+            profile,
         )
 
         root_cause = self._root_cause(
-            change
+            change,
+            profile,
         )
 
         resolution_code = (
-
+        
             self._resolution_code(
-                change
+            
+                change,
+
             )
+
         )
 
         #
         # Create Incident
         #
+
+        # --------------------------------------------------------
+        # Ensure primary device is always included
+        # --------------------------------------------------------
+
+        affected_devices = list(
+        
+            change.affected_device_ids
+
+        )
+
+        if (
+        
+            change.primary_device_id
+
+            not in affected_devices
+
+        ):
+
+            affected_devices.insert(
+            
+                0,
+
+                change.primary_device_id,
+
+            )
 
         incident = Incident(
 
@@ -422,7 +547,9 @@ class IncidentGenerator:
             status="Closed",
 
             incident_category=(
-                change.change_type
+
+                profile["category"]
+
             ),
 
             assignment_group=(
@@ -433,11 +560,7 @@ class IncidentGenerator:
                 change.business_impact
             ),
 
-            affected_device_ids=list(
-
-                change.affected_device_ids
-
-            ),
+            affected_device_ids=affected_devices,
 
             related_change_id=(
                 change.change_id
@@ -506,7 +629,7 @@ class IncidentGenerator:
 
         return incident
     
-        # --------------------------------------------------------
+     # --------------------------------------------------------
     # Enterprise Mapping Helpers
     # --------------------------------------------------------
 
@@ -518,27 +641,20 @@ class IncidentGenerator:
 
     ) -> str:
         """
-        Determine incident severity based
-        on business impact and predicted risk.
+        Determine incident severity.
         """
 
-        if (
+        if change.predicted_risk.lower() == "high":
 
-            change.business_impact == "Critical"
-
-            or
-
-            change.predicted_risk == "High"
-
-        ):
-
-            return "Critical"
-
-        if change.business_impact == "High":
+            if change.change_scope in (
+                "Regional",
+                "Global",
+            ):
+                return "Critical"
 
             return "High"
 
-        if change.business_impact == "Medium":
+        if change.predicted_risk.lower() == "medium":
 
             return "Medium"
 
@@ -553,11 +669,15 @@ class IncidentGenerator:
 
         change: HistoricalChange,
 
+        profile: dict | None = None,
+
     ) -> str:
         """
         Return responsible support group.
         """
-
+        if profile is not None:
+            return profile["assignment_group"]
+        
         return ASSIGNMENT_GROUPS.get(
 
             change.change_type,
@@ -575,10 +695,14 @@ class IncidentGenerator:
 
         change: HistoricalChange,
 
+        profile: dict | None = None,
+
     ) -> str:
         """
         Return enterprise root cause.
         """
+        if profile is not None:
+            return profile["root_cause"]
 
         return ROOT_CAUSES.get(
 
@@ -624,6 +748,24 @@ class IncidentGenerator:
 
         total = len(
             self.generated_incidents
+        )
+
+        average_incidents_per_change = round(
+
+            total
+
+            /
+
+            max(
+
+                1,
+
+                self._processed_changes,
+
+            ),
+
+            2,
+
         )
 
         return {
@@ -714,30 +856,12 @@ class IncidentGenerator:
 
             ),
 
-            "incident_rate": round(
+            "average_incidents_per_change":
 
-                (
-
-                    total
-
-                    /
-
-                    max(
-
-                        1,
-
-                        self._processed_changes,
-
-                    )
-
-                ) * 100,
-
-                2,
-
-            ),
+                average_incidents_per_change,
 
         }
-        # --------------------------------------------------------
+    # --------------------------------------------------------
     # Lookup Helpers
     # --------------------------------------------------------
 
@@ -949,23 +1073,24 @@ class IncidentGenerator:
     def __repr__(
         self,
     ) -> str:
-
+    
         stats = self.statistics()
-
+    
         return (
-
+        
             "IncidentGenerator("
-
+    
             f"incidents={stats['total_incidents']}, "
-
+    
             f"critical={stats['critical']}, "
-
+    
             f"high={stats['high']}, "
-
+    
             f"medium={stats['medium']}, "
-
+    
             f"low={stats['low']}, "
-
-            f"rate={stats['incident_rate']}%)"
-
+    
+            f"avg_incidents_per_change="
+            f"{stats['average_incidents_per_change']})"
+    
         )

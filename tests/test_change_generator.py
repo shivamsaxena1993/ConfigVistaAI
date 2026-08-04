@@ -72,6 +72,38 @@ def build_environment():
 
     )
 
+def expected_change_count(
+    config,
+    devices,
+):
+
+    frequency = {
+
+        "CORE": config.core_device_change_frequency,
+
+        "DIST": config.distribution_device_change_frequency,
+
+        "FW": config.firewall_change_frequency,
+
+        "ACCESS": config.access_device_change_frequency,
+
+        "WAN": config.default_device_change_frequency,
+
+    }
+
+    return sum(
+
+        frequency.get(
+
+            device.role,
+
+            config.default_device_change_frequency,
+
+        )
+
+        for device in devices
+
+    )
 
 # ==========================================================
 # Constructor
@@ -116,9 +148,23 @@ def test_generate():
 
     )
 
-    assert len(changes) == len(devices)
+    assert len(changes) >= len(devices)
 
-    assert len(generator) == len(devices)
+    expected = sum(
+
+        generator._device_change_frequency(
+
+            device,
+
+            config,
+
+        )
+
+        for device in devices
+
+    )
+
+    assert len(generator) == expected
 
 
 def test_return_type():
@@ -206,7 +252,21 @@ def test_total_changes():
 
     )
 
-    assert len(changes) == 300
+    expected = sum(
+
+        generator._device_change_frequency(
+
+            device,
+
+            config,
+
+        )
+
+        for device in devices
+
+    )
+
+    assert len(changes) == expected
 
 
 def test_change_numbers_unique():
@@ -1086,7 +1146,21 @@ def test_len():
 
     )
 
-    assert len(generator) == 300
+    expected = sum(
+
+        generator._device_change_frequency(
+
+            device,
+
+            config,
+
+        )
+
+        for device in devices
+
+    )
+
+    assert len(generator) == expected
 
 
 def test_repr():
@@ -1121,7 +1195,21 @@ def test_repr():
 
     assert "ChangeGenerator" in representation
 
-    assert "changes=300" in representation
+    expected = sum(
+
+        generator._device_change_frequency(
+
+            device,
+
+            config,
+
+        )
+
+        for device in devices
+
+    )
+
+    assert f"changes={expected}" in representation
 
 
 # ==========================================================

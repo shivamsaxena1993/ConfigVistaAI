@@ -1423,7 +1423,21 @@ def test_statistics_consistency():
     )
 
 
-def test_incident_rate():
+def test_average_incidents_per_change():
+
+    (
+
+        config,
+
+        sites,
+
+        devices,
+
+        services,
+
+        changes,
+
+    ) = build_environment()
 
     (
 
@@ -1463,11 +1477,11 @@ def test_incident_rate():
 
         <=
 
-        stats["incident_rate"]
+        stats["average_incidents_per_change"]
 
         <=
 
-        100
+        3
 
     )
 
@@ -1637,7 +1651,7 @@ def test_repr():
 
     assert "incidents=" in representation
 
-    assert "rate=" in representation
+    assert "avg_incidents_per_change=" in representation
 
 
 # ==========================================================

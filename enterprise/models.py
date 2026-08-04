@@ -579,13 +579,9 @@ class FeatureVector(BaseModel):
 
     predicted_risk: str = ""
 
-    actual_outcome: str = ""
-
     risk_score: float = 0.0
 
     confidence_score: float = 0.0
-
-    rollback_required: bool = False
 
     business_impact: str = ""
 

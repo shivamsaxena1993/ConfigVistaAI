@@ -129,60 +129,38 @@ class ChangeGenerator:
 
         self.generated_changes.clear()
 
-        total_changes = len(devices)
+        schedule = self._build_change_schedule(
+            config,
+            devices,
+        )
 
-        for index in range(total_changes):
+        total_changes = len(schedule)
 
-            scope = self._select_scope(
-                index,
-            )
+        for index, primary_device in enumerate(schedule):
+        
+            scope = self._select_scope(index,total_changes,)
 
             affected_devices = self._select_devices(
-
                 scope,
-
                 devices,
-
-                index,
-
+                primary_device,
             )
-
-            primary_device = affected_devices[0]
-
-            #
-            # Site
-            #
 
             site = next(
-
                 (
-
                     s
-
-                    for s
-
-                    in sites
-
+                    for s in sites
                     if s.site_id == primary_device.site_id
-
                 ),
-
                 sites[0],
-
             )
 
-            #
-            # Business Service
-            #
-
             service = business_services[
-                index % len(
-                    business_services
-                )
+                index % len(business_services)
             ]
 
             change = self._create_change(
-
+            
                 index=index,
 
                 primary_device=primary_device,
@@ -197,49 +175,127 @@ class ChangeGenerator:
 
             )
 
-            self.generated_changes.append(
-                change
-            )
+            self.generated_changes.append(change)
 
         return self.generated_changes
+    
+    # ========================================================
+    # Deployment Schedule
+    # ========================================================
+
+    def _build_change_schedule(
+        self,
+        config: EnterpriseGenerationConfig,
+        devices: list[Device],
+    ) -> list[Device]:
+
+        schedule = []
+
+        for device in devices:
+
+            count = self._device_change_frequency(device,config,)
+
+            schedule.extend(
+                [device] * count
+            )
+
+        return schedule
+
+    # --------------------------------------------------------
+
+    def _device_change_frequency(
+
+        self,
+    
+        device: Device,
+    
+        config: EnterpriseGenerationConfig,
+    
+    ) -> int:
+        """
+        Determine how many historical changes should
+        be generated for a device.
+        """
+    
+        role = (
+        
+            device.role.upper()
+    
+            if device.role
+    
+            else ""
+    
+        )
+    
+        frequency_map = {
+        
+            "CORE": config.core_device_change_frequency,
+    
+            "DIST": config.distribution_device_change_frequency,
+    
+            "FW": config.firewall_change_frequency,
+    
+            "ACCESS": config.access_device_change_frequency,
+    
+            "WAN": config.default_device_change_frequency,
+    
+        }
+    
+        return frequency_map.get(
+        
+            role,
+    
+            config.default_device_change_frequency,
+    
+        )
     
     # --------------------------------------------------------
     # Enterprise Selection Helpers
     # --------------------------------------------------------
 
     def _select_scope(
+
         self,
+
         index: int,
+
+        total_changes: int,
+
     ) -> str:
         """
-        Deterministic enterprise deployment scope.
-
-        Distribution (300 changes)
-
-        0-179   Single Device (180)
-
-        180-239 Device Pair (60)
-
-        240-284 Site (45)
-
-        285-296 Regional (12)
-
-        297-299 Global (3)
+        Select deployment scope using
+        percentage-based distribution.
         """
 
-        if index < 180:
+        progress = (
+
+            index
+
+            /
+
+            max(
+
+                1,
+
+                total_changes,
+
+            )
+
+        )
+
+        if progress < 0.60:
 
             return "Single Device"
 
-        if index < 240:
+        if progress < 0.80:
 
             return "Device Pair"
 
-        if index < 285:
+        if progress < 0.95:
 
             return "Site"
 
-        if index < 297:
+        if progress < 0.99:
 
             return "Regional"
 
@@ -256,7 +312,7 @@ class ChangeGenerator:
 
         devices: list[Device],
 
-        index: int,
+        primary,
 
     ) -> list[Device]:
         """
@@ -266,17 +322,19 @@ class ChangeGenerator:
         The selection is deterministic.
         """
 
-        primary = devices[
-            index % len(devices)
-        ]
-
         #
         # Single Device
         #
 
         if scope == "Single Device":
 
-            return [primary]
+            return self._normalize_affected_devices(
+            
+                primary,
+        
+                [primary],
+        
+            )
 
         #
         # Same Site Devices
@@ -296,11 +354,23 @@ class ChangeGenerator:
 
         if scope == "Device Pair":
 
-            return same_site[:2]
+            return self._normalize_affected_devices(
+            
+                primary,
+
+                same_site[:2],
+
+            )
 
         if scope == "Site":
 
-            return same_site
+            return self._normalize_affected_devices(
+            
+                primary,
+
+                same_site,
+
+            )
 
         #
         # Regional
@@ -322,13 +392,61 @@ class ChangeGenerator:
 
             )
 
-            return devices[start:end]
+            return self._normalize_affected_devices(
+
+                primary,
+
+                devices[start:end],
+
+            )
 
         #
         # Global
         #
 
-        return devices
+        return self._normalize_affected_devices(
+
+            primary,
+
+            devices,
+
+        )
+    
+    # --------------------------------------------------------
+
+    def _normalize_affected_devices(
+
+        self,
+
+        primary: Device,
+
+        devices: list[Device],
+
+    ) -> list[Device]:
+        """
+        Ensure the primary device is always
+        the first affected device.
+        """
+
+        normalized = [
+
+            primary,
+
+        ]
+
+        normalized.extend(
+
+            device
+
+            for device in devices
+
+            if device.device_id != primary.device_id
+
+        )
+
+        return normalized
+
+
     # --------------------------------------------------------
 
     def _select_change_type(
@@ -443,9 +561,17 @@ class ChangeGenerator:
             risk_score
         )
 
-        successful = (
-            index % 10
-        ) != 0
+        successful = self._deployment_success(
+
+            risk_score,
+
+            scope,
+
+            primary_device,
+
+            index,
+
+        )
 
         rollback = not successful
 
@@ -561,6 +687,46 @@ class ChangeGenerator:
 
 
     # --------------------------------------------------------
+
+    def _deployment_success(
+
+        self,
+
+        risk_score: int,
+
+        scope: str,
+
+        device: Device,
+
+        seed: int,
+
+    ) -> bool:
+
+        import random
+
+        random.seed(seed)
+
+        probability = 0.95
+
+        probability -= risk_score / 200
+
+        if scope == "Site":
+
+            probability -= 0.05
+
+        elif scope == "Regional":
+
+            probability -= 0.10
+
+        elif scope == "Global":
+
+            probability -= 0.15
+
+        if device.criticality == "Critical":
+
+            probability -= 0.05
+
+        return random.random() < probability
 
     def _risk_score(
         self,
@@ -846,26 +1012,26 @@ class ChangeGenerator:
     def __repr__(self) -> str:
 
         stats = self.statistics()
-    
+
         return (
-        
+
             "ChangeGenerator("
-    
+
             f"changes={stats['total_changes']}, "
-    
+
             f"successful={stats['successful']}, "
-    
+
             f"failed={stats['failed']}, "
-    
+
             f"single={stats['single_device']}, "
-    
+
             f"pair={stats['device_pair']}, "
-    
+
             f"site={stats['site']}, "
-    
+
             f"regional={stats['regional']}, "
-    
+
             f"global={stats['global']})"
-    
+
         )
     

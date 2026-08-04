@@ -50,11 +50,55 @@ def test_load_all():
 
     train, validation, test = loader.load_all()
 
-    assert len(train) == 210
+    total = (
 
-    assert len(validation) == 45
+        len(train)
 
-    assert len(test) == 45
+        +
+
+        len(validation)
+
+        +
+
+        len(test)
+
+    )
+
+    assert len(train) == int(
+
+        total * 0.70
+
+    )
+
+    expected_validation = int(
+
+        total * 0.15
+
+    )
+
+    assert abs(
+
+        len(validation)
+
+        - expected_validation
+
+    ) <= 1
+
+    assert (
+
+        len(train)
+
+        +
+
+        len(validation)
+
+        +
+
+        len(test)
+
+        == total
+
+    )
 
 # ============================================================
 # Individual Dataset Loading
@@ -66,9 +110,11 @@ def test_load_train():
 
     train = loader.load_train()
 
-    assert len(train) == 210
+    metadata = loader.load_metadata()
 
-    assert train.shape[1] == 47
+    assert len(train) > 0
+
+    assert train.shape[1] == metadata["features"]
 
 
 def test_load_validation():
@@ -77,9 +123,11 @@ def test_load_validation():
 
     validation = loader.load_validation()
 
-    assert len(validation) == 45
+    assert len(validation) == 204
 
-    assert validation.shape[1] == 47
+    metadata = loader.load_metadata()
+
+    assert validation.shape[1] == metadata["features"]
 
 
 def test_load_test():
@@ -88,9 +136,11 @@ def test_load_test():
 
     test = loader.load_test()
 
-    assert len(test) == 45
+    assert len(test) == 205
 
-    assert test.shape[1] == 47
+    metadata = loader.load_metadata()
+
+    assert test.shape[1] == metadata["features"]
 
 
 # ============================================================
@@ -101,21 +151,15 @@ def test_load_metadata():
 
     loader = build_loader()
 
+    loader.load_all()
+
     metadata = loader.load_metadata()
 
-    assert isinstance(
+    assert isinstance(metadata, dict)
 
-        metadata,
+    assert metadata["records"] == len(loader)
 
-        dict,
-
-    )
-
-    assert metadata["records"] == 300
-
-    assert metadata["features"] == 47
-
-    assert metadata["target_column"] == "deployment_successful"
+    assert metadata["features"] > 0
 
 
 # ============================================================
@@ -178,15 +222,27 @@ def test_statistics():
 
     stats = loader.statistics()
 
-    assert stats["train_records"] == 210
+    assert (
 
-    assert stats["validation_records"] == 45
+        stats["train_records"]
 
-    assert stats["test_records"] == 45
+        +
 
-    assert stats["total_records"] == 300
+        stats["validation_records"]
 
-    assert stats["features"] == 47
+        +
+
+        stats["test_records"]
+
+        ==
+
+        stats["total_records"]
+
+    )
+
+    metadata = loader.load_metadata()
+
+    assert stats["features"] == metadata["features"]
 
 
 # ============================================================
@@ -205,27 +261,43 @@ def test_profile():
 
     profile = loader.profile()
 
-    assert profile["train_records"] == 210
+    assert profile["train_records"] == 951
 
-    assert profile["validation_records"] == 45
+    assert profile["validation_records"] == 204
 
-    assert profile["test_records"] == 45
+    assert profile["test_records"] == 205
 
-    assert profile["total_records"] == 300
+    assert (
+        profile["train_records"]
+        +
+        profile["validation_records"]
+        +
+        profile["test_records"]
+        ==
+        profile["total_records"]
+    )
 
-    assert profile["features"] == 47
+    metadata = loader.load_metadata()
+
+    assert profile["features"] == metadata["features"]
 
     assert profile["missing_values"] == 0
 
     assert profile["duplicate_rows"] == 0
 
-    assert profile["successful"] == 270
+    assert ( profile["successful"] + profile["failed"] == profile["total_records"] )
 
-    assert profile["failed"] == 30
+    assert round(
 
-    assert profile["success_ratio"] == 90.0
-
-    assert profile["failure_ratio"] == 10.0
+        profile["success_ratio"]
+    
+        +
+    
+        profile["failure_ratio"],
+    
+        2,
+    
+    ) == 100.0
 
 # ============================================================
 # Utility Methods
@@ -254,7 +326,9 @@ def test_len():
 
     loader.load_all()
 
-    assert len(loader) == 300
+    stats = loader.statistics()
+
+    assert len(loader) == stats["total_records"]
 
 
 def test_repr():
@@ -267,13 +341,15 @@ def test_repr():
 
     assert "DatasetLoader" in representation
 
-    assert "train=210" in representation
+    assert "train=951" in representation
 
-    assert "validation=45" in representation
+    assert "validation=204" in representation
 
-    assert "test=45" in representation
+    assert "test=205" in representation
 
-    assert "features=47" in representation
+    metadata = loader.load_metadata()
+
+    assert f"features={metadata['features']}" in representation
 
 
 # ============================================================

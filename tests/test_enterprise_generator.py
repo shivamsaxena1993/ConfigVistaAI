@@ -114,13 +114,11 @@ class MockTopologyGenerator:
 class MockChangeGenerator:
 
     def generate(
-
         self,
-
         config,
-
+        sites,
         devices,
-
+        services,
     ):
 
         return []
@@ -275,9 +273,15 @@ def test_default_configuration():
 
     assert config.branch_sites == 30
 
-    assert config.historical_changes == 300
+    assert config.core_device_change_frequency == 8
 
-    assert config.operational_snapshots == 300
+    assert config.distribution_device_change_frequency == 6
+
+    assert config.access_device_change_frequency == 3
+
+    assert config.firewall_change_frequency == 5
+
+    assert config.default_device_change_frequency == 2
 
 
 def test_statistics_defaults():
@@ -706,7 +710,15 @@ def test_custom_configuration():
 
         branch_sites=5,
 
-        historical_changes=50,
+        core_device_change_frequency=4,
+
+        distribution_device_change_frequency=3,
+
+        access_device_change_frequency=2,
+
+        firewall_change_frequency=2,
+
+        default_device_change_frequency=1,
 
     )
 
@@ -720,7 +732,15 @@ def test_custom_configuration():
 
     assert generator.config.branch_sites == 5
 
-    assert generator.config.historical_changes == 50
+    assert generator.config.core_device_change_frequency == 4
+
+    assert generator.config.distribution_device_change_frequency == 3
+    
+    assert generator.config.access_device_change_frequency == 2
+    
+    assert generator.config.firewall_change_frequency == 2
+    
+    assert generator.config.default_device_change_frequency == 1
 
 
 # ==========================================================

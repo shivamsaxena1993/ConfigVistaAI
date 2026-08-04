@@ -10,6 +10,7 @@ from enterprise.models import (
     BusinessService,
     ConfigurationBackup,
     Device,
+    DeviceId,
     FeatureVector,
     HistoricalChange,
     Incident,
@@ -118,10 +119,12 @@ class FeatureGenerator:
 
         }
 
+        history = self._initialize_history()
+
         for change in changes:
-
+        
             feature = self._build_feature_vector(
-
+            
                 change,
 
                 device_lookup,
@@ -134,16 +137,194 @@ class FeatureGenerator:
 
                 snapshot_lookup,
 
-                incidents,
+                history,
 
             )
 
             self.generated_features.append(
-                feature
+            
+                feature,
+
+            )
+
+            current_incidents = self._count_current_incidents(
+            
+                change,
+
+                incidents,
+
+            )
+
+            self._update_history(
+
+                change.primary_device_id,
+            
+                history,
+
+                change,
+
+                current_incidents,
+
             )
 
         return self.generated_features
 
+    def _initialize_history(
+        self,
+    ) -> dict:
+        """
+        Maintain historical statistics per device.
+        """
+
+        return {
+
+            "devices": {}
+
+        }
+    
+    def _get_history_metrics(
+
+        self,
+
+        device_id: DeviceId,
+
+        history: dict,
+
+    ) -> dict:
+        """
+        Return historical metrics for a device BEFORE
+        the current change.
+        """
+
+        device_history = history["devices"].setdefault(
+
+            device_id,
+
+            {
+
+                "successful_changes": 0,
+
+                "failed_changes": 0,
+
+                "rollback_history": 0,
+
+                "previous_incidents": 0,
+
+                "critical_incidents": 0,
+
+            },
+
+        )
+
+        return device_history.copy()
+    
+    def _count_current_incidents(
+
+        self,
+
+        change: HistoricalChange,
+
+        incidents: list[Incident],
+
+    ) -> dict:
+
+        related = [
+
+            incident
+
+            for incident
+
+            in incidents
+
+            if incident.related_change_id
+            == change.change_id
+
+        ]
+
+        return {
+
+            "previous_incidents":
+
+                len(related),
+
+            "critical_incidents":
+
+                sum(
+
+                    1
+
+                    for incident
+
+                    in related
+
+                    if incident.severity
+                    == "Critical"
+
+                ),
+
+        }
+    
+    def _update_history(
+
+        self,
+    
+        device_id: DeviceId,
+    
+        history: dict,
+    
+        change: HistoricalChange,
+    
+        current_incidents: dict,
+    
+    ) -> None:
+        """
+        Update device history AFTER generating
+        the feature vector.
+        """
+
+        device_history = history["devices"].setdefault(
+
+            device_id,
+
+            {
+
+                "successful_changes": 0,
+
+                "failed_changes": 0,
+
+                "rollback_history": 0,
+
+                "previous_incidents": 0,
+
+                "critical_incidents": 0,
+
+            },
+
+        )
+
+        if change.actual_outcome.lower() == "successful":
+
+            device_history["successful_changes"] += 1
+
+        else:
+
+            device_history["failed_changes"] += 1
+
+        if change.rollback_required:
+
+            device_history["rollback_history"] += 1
+
+        device_history["previous_incidents"] += (
+
+            current_incidents["previous_incidents"]
+
+        )
+
+        device_history["critical_incidents"] += (
+
+            current_incidents["critical_incidents"]
+
+        )
     # ========================================================
     # Feature Engineering
     # ========================================================
@@ -164,7 +345,7 @@ class FeatureGenerator:
 
         snapshot_lookup: dict,
 
-        incidents: list[Incident],
+        history: dict,
 
     ) -> FeatureVector:
 
@@ -198,18 +379,15 @@ class FeatureGenerator:
 
         )
 
-        related_incidents = [
+        history_metrics = self._get_history_metrics(
 
-            incident
+            change.primary_device_id,
 
-            for incident
+            history,
 
-            in incidents
+        )
 
-            if incident.related_change_id
-            == change.change_id
-
-        ]
+        
 
         deployment_successful = (
 
@@ -247,13 +425,9 @@ class FeatureGenerator:
 
             predicted_risk=change.predicted_risk,
 
-            actual_outcome=change.actual_outcome,
-
             risk_score=change.risk_score,
 
             confidence_score=change.confidence_score,
-
-            rollback_required=change.rollback_required,
 
             business_impact=change.business_impact,
 
@@ -415,50 +589,43 @@ class FeatureGenerator:
             # Historical Features
             # ------------------------------------------------
 
-            previous_incidents=len(
-                related_incidents
+            previous_incidents=(
+
+                history_metrics[
+                    "previous_incidents"
+                ]
+
             ),
 
-            critical_incidents=sum(
-
-                1
-
-                for incident
-
-                in related_incidents
-
-                if incident.severity
-                == "Critical"
+            critical_incidents=(
+            
+                history_metrics[
+                    "critical_incidents"
+                ]
 
             ),
 
             successful_changes=(
             
-                1
-
-                if deployment_successful
-
-                else 0
+                history_metrics[
+                    "successful_changes"
+                ]
 
             ),
 
             failed_changes=(
             
-                0
-
-                if deployment_successful
-
-                else 1
+                history_metrics[
+                    "failed_changes"
+                ]
 
             ),
 
             rollback_history=(
             
-                1
-
-                if change.rollback_required
-
-                else 0
+                history_metrics[
+                    "rollback_history"
+                ]
 
             ),
 

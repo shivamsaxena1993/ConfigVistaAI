@@ -85,45 +85,41 @@ def test_split_features_and_target():
 
     )
 
-    assert encoder.X_train.shape == (
+    assert encoder.X_train.shape[0] == len(train,)
 
-        210,
-
-        46,
-
-    )
+    assert encoder.X_train.shape[1] == 44
 
     assert encoder.y_train.shape == (
 
-        210,
+        len(train),
 
     )
 
     assert encoder.X_validation.shape == (
 
-        45,
+        len(validation),
 
-        46,
+        44,
 
     )
 
     assert encoder.y_validation.shape == (
 
-        45,
+        len(validation),
 
     )
 
     assert encoder.X_test.shape == (
 
-        45,
+        len(test),
 
-        46,
+        44,
 
     )
 
     assert encoder.y_test.shape == (
 
-        45,
+        len(test),
 
     )
 
@@ -149,27 +145,27 @@ def test_drop_excluded_columns():
 
     encoder._drop_excluded_columns()
 
-    assert encoder.X_train.shape == (
+    assert encoder.X_train.shape[0] == len(
 
-        210,
-
-        39,
+        train,
 
     )
 
+    assert encoder.X_train.shape[1] == 37
+
     assert encoder.X_validation.shape == (
 
-        45,
+        204,
 
-        39,
+        37,
 
     )
 
     assert encoder.X_test.shape == (
 
-        45,
+        205,
 
-        39,
+        37,
 
     )
 
@@ -233,7 +229,7 @@ def test_get_categorical_columns():
 
         categorical,
 
-    ) == 16
+    ) == 15
 
 
 def test_expected_categorical_columns():
@@ -257,8 +253,6 @@ def test_expected_categorical_columns():
     categorical = encoder._get_categorical_columns()
 
     expected = {
-
-        "actual_outcome",
 
         "backup_type",
 
@@ -326,7 +320,7 @@ def test_fit_encoders():
 
         encoder.label_encoders,
 
-    ) == 16
+    ) == 15
 
 
 def test_transform():
@@ -351,28 +345,28 @@ def test_transform():
 
     encoder.transform()
 
-    assert encoder.X_train.shape == (
+    assert encoder.X_train.shape[0] == len(
 
-        210,
-
-        39,
+        train,
 
     )
 
+    assert encoder.X_train.shape[1] == 37
+
     assert encoder.X_validation.shape == (
 
-        45,
+        len(validation),
 
-        39,
+        37,
 
     )
 
     assert encoder.X_test.shape == (
 
-        45,
-
-        39,
-
+        len(test),
+    
+        37,
+    
     )
 
 
@@ -392,17 +386,17 @@ def test_encode():
 
     )
 
-    assert encoder.X_train.shape == (
+    assert encoder.X_train.shape[0] == len(
 
-        210,
-
-        39,
+        train,
 
     )
 
+    assert encoder.X_train.shape[1] == 37
+
     assert encoder.y_train.shape == (
 
-        210,
+        len(train),
 
     )
 
@@ -427,7 +421,7 @@ def test_feature_names():
 
         encoder.feature_names,
 
-    ) == 39
+    ) == 37
 
     assert "risk_score" in encoder.feature_names
 
@@ -454,8 +448,6 @@ def test_encoded_columns_are_numeric():
     )
 
     categorical = [
-
-        "actual_outcome",
 
         "backup_type",
 
@@ -514,7 +506,7 @@ def test_label_encoder_count():
 
         encoder.label_encoders,
 
-    ) == 16
+    ) == 15
 
 # ============================================================
 # Persistence

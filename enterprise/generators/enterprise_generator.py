@@ -85,20 +85,18 @@ class EnterpriseGenerationConfig:
     wan_edge_devices: int = 20
 
     #
-    # Historical Data
+    # Change Generation
     #
 
-    historical_changes: int = 300
+    core_device_change_frequency: int = 8
 
-    incidents: int = 200
+    distribution_device_change_frequency: int = 6
 
-    #
-    # Snapshots
-    #
+    firewall_change_frequency: int = 5
 
-    configuration_backups: int = 300
+    access_device_change_frequency: int = 3
 
-    operational_snapshots: int = 300
+    default_device_change_frequency: int = 2
 
     #
     # Randomness
@@ -493,11 +491,25 @@ class EnterpriseGenerator:
         changes = self.change_generator.generate(
 
             self.config,
-
+        
             list(
-                self.inventory.devices.values()
+            
+                self.inventory.sites.values()
+        
             ),
-
+        
+            list(
+            
+                self.inventory.devices.values()
+        
+            ),
+        
+            list(
+            
+                self.inventory.business_services.values()
+        
+            ),
+        
         )
 
         for change in changes:
